@@ -1,0 +1,30 @@
+[Output]
+output_directory = "psi_output/SinkingSlab_hffk3s"
+tf_time_stamp = false
+
+[Observations.SplittingIntensity.ShearWave]
+filename = "psi_input/DUMMY_SplittingIntensity_ShearWave.dat"
+
+[Model]
+parameterisation = "ElasticVoigt"
+tf_global_cartesian = false
+theModel = "psi_input/psitomo0020.dat"
+
+[Model.CoordinateSystem]
+type = "LocalGeographic"
+
+[Model.Mesh]
+type = "RegularGrid"
+
+[Model.Aquisition]
+source_data   = "psi_input/Sources.dat"
+receiver_data = "psi_input/Receivers.dat"
+
+[Model.Methods.TauP]
+reference_model = "psi_input/ak135_no_crust.tvel"
+DL = 10.0
+
+[Model.Methods.FiniteFrequency]
+dominant_period = 3.0
+n_rings = 3
+n_azimuth = 8

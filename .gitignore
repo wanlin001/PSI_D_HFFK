@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# Julia
+Manifest.toml
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+
+# PSI_D output data (大檔，不追蹤)
+psi_output/*/SYN_*.dat
+
+# figures
+figs/*.png
+figs/*.pdf
+
+# temporary
+*.tmp
+*.log
+__pycache__/
+*.pyc
