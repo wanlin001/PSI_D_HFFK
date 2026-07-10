@@ -470,10 +470,8 @@ function _hffk_smooth_cij!(Kernel::ObservableKernel{<:SplittingParameters, <:Ela
                                                      rad2deg(azimuth_ray),
                                                      rad2deg(elevation_ray),
                                                      Δe, Δn)
-            qx_off_global = geographic_to_global(lon_off, lat_off, elv_ray;
-                                                  radius = Model.Mesh.Geometry.R₀)
-            qx_off_local  = global_to_local(qx_off_global[1], qx_off_global[2],
-                                             qx_off_global[3], Model.Mesh.Geometry)
+            # lon_off/lat_off 已在 local frame (degrees)，elv_ray = elevation (km)
+            qx_off_local  = (lon_off, lat_off, elv_ray)
             wind, wval = trilinear_weights(Model.Mesh.x, qx_off_local;
                                            tf_extrapolate = true, scale = 1.0)
             MP = Model.Parameters

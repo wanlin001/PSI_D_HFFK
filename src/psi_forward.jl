@@ -1463,11 +1463,9 @@ function psi_forward_hffk(Observation::SplittingIntensity, Model::PsiModel)
                                                      rad2deg(azimuth_ray),
                                                      rad2deg(elevation_ray),
                                                      Δe, Δn)
-            # 轉回 global 座標供模型插值
-            qx_off_global = geographic_to_global(lon_off, lat_off, elv_ray;
-                                                  radius = Model.Mesh.Geometry.R₀)
-            qx_off_local  = global_to_local(qx_off_global[1], qx_off_global[2],
-                                             qx_off_global[3], Model.Mesh.Geometry)
+            # lon_off, lat_off 已在 local 座標系 (degrees)，elv_ray = elevation (km，負深度)
+            # 與 Model.Mesh.x 相同座標系，直接使用，無需 global round-trip
+            qx_off_local  = (lon_off, lat_off, elv_ray)
 
             # 插值偏移點的模型參數（單點版）
             si_pt = interpolate_si_at_point(Observation.Phase, Kernel, i,
