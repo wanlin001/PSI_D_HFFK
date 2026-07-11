@@ -96,21 +96,40 @@ end
   n_rings   : 徑向環數（預設 3）
   n_azimuth : 每環的方位取樣數（預設 8）
 """
-function fresnel_sample_offsets(R_f::T, n_rings::Int=3, n_azimuth::Int=8) where {T <: AbstractFloat}
+"""
+    fresnel_sample_offsets(R_f, n_rings, n_azimuth; sampling=:equal_area)
+
+兩種徑向取樣方案：
+
+  `:equal_area`（預設，正確面積積分）
+    令 u = r²/R_f²，等分 u-space 的 midpoint：
+      rᵢ = R_f × sqrt((i-0.5)/n_rings)
+    每個環帶面積相等（πR_f²/n_rings），在 Σ K(rᵢ)SI(rᵢ)/ΣK(rᵢ)
+    的歸一化公式下自動給出正確的面積加權平均。
+
+  `:equal_r`（舊版，向後相容）
+    等間距 r：rᵢ = R_f × i/(n_rings+0.5)
+    外環面積較大但取樣點數相同，對 ∫K(r)·2πr dr 有系統性偏差。
+"""
+function fresnel_sample_offsets(R_f::T, n_rings::Int=3, n_azimuth::Int=8;
+                                 sampling::Symbol=:equal_area) where {T <: AbstractFloat}
     offsets = Tuple{T, T, T}[]
 
-    # 中心點（幾何射線本身，HFFK sin(0)=0，weight→0 但仍保留以保持向後相容）
+    # 中心點（donut hole，weight=0）
     push!(offsets, (zero(T), zero(T), zero(T)))
 
-    # 同心環
     for ir in 1:n_rings
-        r = R_f * ir / (n_rings + 0.5)   # 不取到 R_f 邊界（sin→0）
+        if sampling === :equal_area
+            # 等面積環帶中心點：等分 u = r²/R_f²
+            r = R_f * sqrt((ir - T(0.5)) / n_rings)
+        else
+            # 舊版：等間距 r（:equal_r）
+            r = R_f * ir / (n_rings + T(0.5))
+        end
         w = hffk_weight(r, R_f)
         for ia in 1:n_azimuth
             az = 2π * (ia - 1) / n_azimuth
-            Δe = r * cos(az)
-            Δn = r * sin(az)
-            push!(offsets, (Δe, Δn, w))
+            push!(offsets, (r * cos(az), r * sin(az), w))
         end
     end
 
