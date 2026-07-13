@@ -39,9 +39,11 @@ run_hffk() {
     local OUTDAT="${OUTDIR}/SYN_SplittingIntensity_ShearWave.dat"
     local TMPDIR="${PROJECT_DIR}/.psi_tmp_${TAG}_$$"
 
-    if [ -f "${OUTDAT}" ] && [ "$(wc -l < "${OUTDAT}")" -ge "${MIN_LINES}" ]; then
-        echo "[SKIP] ${TAG} already complete ($(wc -l < "${OUTDAT}") lines)"; return 0
-    fi
+    # SKIP logic disabled — force rerun all periods
+    # if [ -f "${OUTDAT}" ] && [ "$(wc -l < "${OUTDAT}")" -ge "${MIN_LINES}" ]; then
+    #     echo "[SKIP] ${TAG} already complete ($(wc -l < "${OUTDAT}") lines)"; return 0
+    # fi
+    rm -rf "${OUTDIR}"
 
     echo ""; echo "===== ${TAG} T=${PERIOD}s $(date) ====="
     mkdir -p "${OUTDIR}" "${TMPDIR}"
