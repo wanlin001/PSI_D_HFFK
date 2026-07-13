@@ -88,28 +88,16 @@ end
 # 給定射線點，生成 Fresnel zone 內的取樣點
 # -----------------------------------------------------------------------------
 """
-    fresnel_sample_offsets(R_f, n_rings, n_azimuth) -> offsets::Vector{Tuple{Float64,Float64,Float64}}
+    fresnel_sample_offsets(R_f, n_rings, n_azimuth; sampling=:equal_area)
 
 在 Fresnel zone 截面（垂直射線的平面）產生取樣點的二維偏移量。
 傳回: [(Δeast_km, Δnorth_km, weight), ...]
-  中心點 (r=0) 有 weight = 0（doughnut hole 近似中心亦包含，但 HFFK 在 r→0 時 sin→0 自然趨零）
   n_rings   : 徑向環數（預設 3）
   n_azimuth : 每環的方位取樣數（預設 8）
-"""
-"""
-    fresnel_sample_offsets(R_f, n_rings, n_azimuth; sampling=:equal_area)
 
 兩種徑向取樣方案：
-
-  `:equal_area`（預設，正確面積積分）
-    令 u = r²/R_f²，等分 u-space 的 midpoint：
-      rᵢ = R_f × sqrt((i-0.5)/n_rings)
-    每個環帶面積相等（πR_f²/n_rings），在 Σ K(rᵢ)SI(rᵢ)/ΣK(rᵢ)
-    的歸一化公式下自動給出正確的面積加權平均。
-
-  `:equal_r`（舊版，向後相容）
-    等間距 r：rᵢ = R_f × i/(n_rings+0.5)
-    外環面積較大但取樣點數相同，對 ∫K(r)·2πr dr 有系統性偏差。
+  `:equal_area`（預設）令 u = r²/R_f²，等分 u-space midpoint：rᵢ = R_f × sqrt((i-0.5)/n_rings)
+  `:equal_r`（舊版）等間距 r：rᵢ = R_f × i/(n_rings+0.5)
 """
 function fresnel_sample_offsets(R_f::T, n_rings::Int=3, n_azimuth::Int=8;
                                  sampling::Symbol=:equal_area) where {T <: AbstractFloat}
