@@ -1,7 +1,7 @@
 #!/bin/bash
-# Job D — HFFK Splitting Intensity, Kuo2018 events (SKS + SKKS), T=4/8/16 s
-# Output : psi_output/hffk_Kuo2018_SKS_T4/8/16s/
-#          psi_output/hffk_Kuo2018_SKKS_T4/8/16s/
+# Job D — HFFK Splitting Intensity, Kuo2018 events (SKS + SKKS), T=4/8/16/20/25/33/50 s
+# Output : psi_output/hffk_Kuo2018_SKS_T{4,8,16,20,25,33,50}s/
+#          psi_output/hffk_Kuo2018_SKKS_T{4,8,16,20,25,33,50}s/
 # Submit : cd /home/wl/work/ASPECT/<PROJECT> && sbatch /home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK/scripts/slurm/jobD_hffk_Kuo2018.sh
 #SBATCH -J psi_D_hffk_kuo
 #SBATCH -p 8358
@@ -67,10 +67,18 @@ run_hffk() {
 run_hffk "hffk_Kuo2018_SKS_T4s"  4.0  "${SRC_SKS}"  "${OBS_SKS}"  2101
 run_hffk "hffk_Kuo2018_SKS_T8s"  8.0  "${SRC_SKS}"  "${OBS_SKS}"  2101
 run_hffk "hffk_Kuo2018_SKS_T16s" 16.0 "${SRC_SKS}"  "${OBS_SKS}"  2101
+run_hffk "hffk_Kuo2018_SKS_T20s" 20.0 "${SRC_SKS}"  "${OBS_SKS}"  2101
+run_hffk "hffk_Kuo2018_SKS_T25s" 25.0 "${SRC_SKS}"  "${OBS_SKS}"  2101
+run_hffk "hffk_Kuo2018_SKS_T33s" 33.0 "${SRC_SKS}"  "${OBS_SKS}"  2101
+run_hffk "hffk_Kuo2018_SKS_T50s" 50.0 "${SRC_SKS}"  "${OBS_SKS}"  2101
 
 # SKKS: 15 proxy events → 15 × 525 + 1 = 7876 lines
 run_hffk "hffk_Kuo2018_SKKS_T4s"  4.0  "${SRC_SKKS}" "${OBS_SKKS}" 7876
 run_hffk "hffk_Kuo2018_SKKS_T8s"  8.0  "${SRC_SKKS}" "${OBS_SKKS}" 7876
 run_hffk "hffk_Kuo2018_SKKS_T16s" 16.0 "${SRC_SKKS}" "${OBS_SKKS}" 7876
+run_hffk "hffk_Kuo2018_SKKS_T20s" 20.0 "${SRC_SKKS}" "${OBS_SKKS}" 7876
+run_hffk "hffk_Kuo2018_SKKS_T25s" 25.0 "${SRC_SKKS}" "${OBS_SKKS}" 7876
+run_hffk "hffk_Kuo2018_SKKS_T33s" 33.0 "${SRC_SKKS}" "${OBS_SKKS}" 7876
+run_hffk "hffk_Kuo2018_SKKS_T50s" 50.0 "${SRC_SKKS}" "${OBS_SKKS}" 7876
 
 echo ""; echo "===== Job D done $(date) ====="

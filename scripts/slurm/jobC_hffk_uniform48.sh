@@ -1,8 +1,12 @@
 #!/bin/bash
-# Job C — HFFK Splitting Intensity, uniform48 SYN events, T=4/8/16 s
+# Job C — HFFK Splitting Intensity, uniform48 SYN events, T=4/8/16/20/25/33/50 s
 # Output : psi_output/hffk_u48_T4s/
 #          psi_output/hffk_u48_T8s/
 #          psi_output/hffk_u48_T16s/
+#          psi_output/hffk_u48_T20s/
+#          psi_output/hffk_u48_T25s/
+#          psi_output/hffk_u48_T33s/
+#          psi_output/hffk_u48_T50s/
 # Submit : cd /home/wl/work/ASPECT/<PROJECT> && sbatch /home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK/scripts/slurm/jobC_hffk_uniform48.sh
 #SBATCH -J psi_C_hffk_u48
 #SBATCH -p 8358
@@ -65,5 +69,9 @@ run_hffk() {
 run_hffk "hffk_u48_T4s"  4.0
 run_hffk "hffk_u48_T8s"  8.0
 run_hffk "hffk_u48_T16s" 16.0
+run_hffk "hffk_u48_T20s" 20.0
+run_hffk "hffk_u48_T25s" 25.0
+run_hffk "hffk_u48_T33s" 33.0
+run_hffk "hffk_u48_T50s" 50.0
 
 echo ""; echo "===== Job C done $(date) ====="
