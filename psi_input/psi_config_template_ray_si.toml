@@ -1,0 +1,35 @@
+# PSI_D config template — Ray theory SplittingIntensity (no HFFK)
+# Placeholders filled by job scripts via sed:
+#   __OUTPUT_DIR__  → psi_output/<tag>
+#   __MODEL_DAT__   → viztomo_output/psitomo<step>_fix2.dat
+#   __OBS_FILE__    → absolute path to DUMMY_SI observation file
+#   __SOURCES_DAT__ → absolute path to Sources.dat
+#
+# No [Model.Methods.FiniteFrequency] → PSI_D uses pure ray-theory SI
+# SI integrated along 1D TauP ray path, no Fresnel zone sampling.
+
+[Output]
+output_directory = "__OUTPUT_DIR__"
+tf_time_stamp = false
+
+[Observations.SplittingIntensity.ShearWave]
+filename = "__OBS_FILE__"
+
+[Model]
+parameterisation = "ElasticVoigt"
+tf_global_cartesian = false
+theModel = "__MODEL_DAT__"
+
+[Model.CoordinateSystem]
+type = "LocalGeographic"
+
+[Model.Mesh]
+type = "RegularGrid"
+
+[Model.Aquisition]
+source_data   = "__SOURCES_DAT__"
+receiver_data = "/home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK/psi_input/Receivers.dat"
+
+[Model.Methods.TauP]
+reference_model = "/home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK/psi_input/ak135_no_crust.tvel"
+DL = 10.0
