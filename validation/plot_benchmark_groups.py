@@ -177,6 +177,70 @@ def load_analytical(csv_path, col_name):
 
 
 # ══════════════════════════════════════════════════════════════════
+# 診斷：掃描所有輸出檔，印統計（在畫圖前先看清楚實際數值範圍）
+# ══════════════════════════════════════════════════════════════════
+
+def _stats(arr):
+    """回傳 (n, min, max, mean, |max|, n_nonzero)。"""
+    if arr is None or len(arr) == 0:
+        return (0, 0., 0., 0., 0., 0)
+    a = np.asarray(arr, float)
+    nz = int(np.sum(np.abs(a) > 1e-9))
+    return (len(a), float(a.min()), float(a.max()),
+            float(a.mean()), float(np.abs(a).max()), nz)
+
+
+def diagnose_outputs(bench_out, all_models, periods):
+    """
+    掃描 bench_out 下所有 ray SP 與 HFFK SI 輸出，印統計表。
+    直接回答「HFFK SI 到底是真的 0 還是小到看不見」。
+    """
+    print("\n" + "=" * 78)
+    print("BENCHMARK 輸出診斷（畫圖前先檢查實際數值）")
+    print("=" * 78)
+    print(f"{'model':<18}{'kind':<12}{'n':>5}{'min':>10}{'max':>10}"
+          f"{'|max|':>10}{'nonzero':>9}")
+    print("-" * 78)
+
+    global_absmax = 0.0
+    for model in all_models:
+        # ray SP → SI（col0=dt, col1=phi）：直接看 dt/phi 原始值
+        ray_dat = bench_out / f"{model}_ray" / "SYN_SplittingParameters_ShearWave.dat"
+        if ray_dat.exists():
+            dt, phi = read_sp_output(ray_dat)
+            n, mn, mx, me, am, nz = _stats(dt)
+            print(f"{model:<18}{'ray dt(s)':<12}{n:>5}{mn:>10.3f}{mx:>10.3f}"
+                  f"{am:>10.3f}{nz:>9}")
+            n, mn, mx, me, am, nz = _stats(phi)
+            print(f"{'':<18}{'ray phi(rad)':<12}{n:>5}{mn:>10.3f}{mx:>10.3f}"
+                  f"{am:>10.3f}{nz:>9}")
+            global_absmax = max(global_absmax, _stats(dt)[4])
+        else:
+            print(f"{model:<18}{'ray':<12}{'--- MISSING ---'}")
+
+        # HFFK SI 各週期（col0=SI）
+        for T in periods:
+            TT = f"{int(T)}s"
+            si_dat = (bench_out / f"{model}_hffk_T{TT}"
+                      / "SYN_SplittingIntensity_ShearWave.dat")
+            if not si_dat.exists():
+                print(f"{'':<18}{'hffk '+TT:<12}{'--- MISSING ---'}")
+                continue
+            si = read_si_output(si_dat)
+            n, mn, mx, me, am, nz = _stats(si)
+            print(f"{'':<18}{'hffk '+TT:<12}{n:>5}{mn:>10.4f}{mx:>10.4f}"
+                  f"{am:>10.4f}{nz:>9}")
+            global_absmax = max(global_absmax, am)
+        print("-" * 78)
+
+    print(f"全體 |max| = {global_absmax:.4f} s")
+    if global_absmax < 0.01:
+        print("⚠️  所有值都 < 0.01s → HFFK/ray forward 可能真的回傳 ~0（非畫圖範圍問題）")
+    print("=" * 78 + "\n")
+    return global_absmax
+
+
+# ══════════════════════════════════════════════════════════════════
 # 單模型 SI 讀取入口
 # ══════════════════════════════════════════════════════════════════
 
@@ -235,6 +299,13 @@ def main():
 
     if not bench_out.exists():
         sys.exit(f"ERROR: {bench_out} not found — run job_bench.sh first")
+
+    # ── 先診斷實際輸出數值 ───────────────────────────────────────
+    all_models = ["bench_1L_A", "bench_1L_B", "bench_2L_A", "bench_2L_B",
+                  "bench_lateral_B", "bench_lateral_C"]
+    global_absmax = diagnose_outputs(bench_out, all_models, PERIODS_ALL)
+    # 依實際資料自動決定 y 軸範圍（下限 0.05s，上限加 15% margin）
+    y_si  = max(0.05, global_absmax * 1.15)
 
     # ── 圖形配置 ─────────────────────────────────────────────────
     fig, axes = plt.subplots(2, 4, figsize=(22, 10), constrained_layout=True)
@@ -350,20 +421,17 @@ def main():
         if bRLB is not None:
             plot_residual(axD1, bRLB, sRLB, bH, sH, f"T={int(T)}s", col)
 
-    # ── 軸格式統一 ───────────────────────────────────────────────
-    ylim_si  = (-2.5, 2.5)
-    ylim_res = (-1.5, 1.5)
-
+    # ── 軸格式統一（y 軸依實際資料自動縮放）──────────────────────
     for col_idx, (ax0, ax1) in enumerate(zip(axes[0], axes[1])):
         ax0.set_xlim(0, 360)
-        ax0.set_ylim(*ylim_si)
+        ax0.set_ylim(-y_si, y_si)
         ax0.axhline(0, color='gray', lw=0.5)
         ax0.set_ylabel("SI (s)", fontsize=9)
         ax0.legend(fontsize=7, ncol=1, loc="upper right")
         ax0.set_xlabel("BAZ (°)", fontsize=9)
 
         ax1.set_xlim(0, 360)
-        ax1.set_ylim(*ylim_res)
+        ax1.set_ylim(-y_si, y_si)
         ax1.axhline(0, color='gray', lw=0.5, ls='--')
         ax1.set_ylabel("ΔHFFK−Ray (s)", fontsize=9)
         ax1.legend(fontsize=7, ncol=1, loc="upper right")
