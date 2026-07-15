@@ -206,12 +206,16 @@ def load_hffk(bench_out, model, period_s, si_src_ids, src_baz):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--psi-dir", default=PSI_DIR_DEFAULT)
+    parser.add_argument("--bench-out", default=None,
+                        help="job_bench.sh 輸出目錄（預設 <psi-dir>/validation/bench_output；"
+                             "從 /lfs 提交時實際在 /lfs/wl/bench_psi/bench_output）")
     parser.add_argument("--out", default=None,
-                        help="輸出圖片前綴（預設 bench_output/benchmark_groups）")
+                        help="輸出圖片前綴（預設 <bench-out>/benchmark_groups）")
     args = parser.parse_args()
 
     psi       = Path(args.psi_dir)
-    bench_out = psi / "validation" / "bench_output"
+    bench_out = (Path(args.bench_out) if args.bench_out
+                 else psi / "validation" / "bench_output")
     bench_inp = psi / "validation" / "bench_psi_input"
     csv_path  = psi / "validation" / "bench_models" / "analytical_si.csv"
     src_file  = bench_inp / "Sources.dat"
