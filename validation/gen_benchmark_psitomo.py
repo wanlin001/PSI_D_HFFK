@@ -38,7 +38,11 @@ from pathlib import Path
 # ── 背景物性（地幔典型值）──────────────────────────────────────────
 VP0 = 8.0    # km/s
 VS0 = 4.5    # km/s
-RHO = 3.3    # g/cm³   [Cij unit = ρV² → GPa when ρ in g/cm³, V in km/s]
+# Cij 用 ρ[g/cm³]·V[km/s]²，剛好得 GPa（1 g/cm³·1 km²/s² = 1 GPa）
+RHO = 3.3       # g/cm³ — 只用於 Cij = ρV² → GPa
+# psitomo 的 rho 欄位必須是 kg/m³（PSI_D Christoffel 用 C[GPa]·1e9/rho[kg/m³]）
+# 真實 psitomo rho≈3561 kg/m³；驗證：Vs=√(66.8e9/3300)·0.001=4.5 km/s ✓
+RHO_SI = RHO * 1000.0   # 3300 kg/m³ — 寫進 psitomo rho 欄位
 DVS = 0.101  # km/s — 各向異性大小 (δVs/Vs0 ≈ 2.25%)
 
 # 快軸方位角定義（從 North 順時針，°）
@@ -102,7 +106,7 @@ def cij_hti(phi_deg: float, dVs: float = DVS) -> np.ndarray:
                         C44, C45, 0.,   # C44 C45 C46
                              C55,  0.,  # C55 C56
                                    mu,  # C66
-        RHO                             # rho
+        RHO_SI                          # rho (kg/m³, NOT g/cm³)
     ]
     return np.array(cij, dtype=float)
 
@@ -117,28 +121,39 @@ def delta_t_km(thick_km: float, dVs: float = DVS) -> float:
 # psitomo 格式輸出
 # ══════════════════════════════════════════════════════════════════
 
+def _write_psitomo_header(f, lon_arr, lat_arr, dep_arr):
+    """
+    寫 psitomo 4 行 header（對齊真實 VIZTOMO 慣例）。
+    ⚠️ 第 3 行是「半寬(度), 半寬(度), 最大深度(km)」，不是格點間距！
+       PSI_D read_model 用 x=range(-Δx, Δx, n) 建網格，只認 header 的半寬。
+    第 1 行：R₀=6371, 中心lon, 中心lat, β=0
+    """
+    nlon, nlat, ndep = len(lon_arr), len(lat_arr), len(dep_arr)
+    clon     = float((lon_arr[0] + lon_arr[-1]) / 2.0)
+    clat     = float((lat_arr[0] + lat_arr[-1]) / 2.0)
+    half_lon = float(lon_arr[-1] - lon_arr[0]) / 2.0
+    half_lat = float(lat_arr[-1] - lat_arr[0]) / 2.0
+    max_dep  = float(dep_arr[-1] - dep_arr[0])       # dep 從 0 起算 → 最大深度
+    f.write(f"  6371.0000, {clon:9.4f}, {clat:9.4f},   0.0000,\n")
+    f.write(f"    {nlon},    {nlat},    {ndep},\n")
+    f.write(f"  {half_lon:.4f},   {half_lat:.4f},  {max_dep:.4f},\n")
+    f.write("   0,\n")
+
+
 def write_psitomo_3d(out_path, lon_arr, lat_arr, dep_arr, cij_func3d):
     """
     cij_func3d(lon, lat, dep) → ndarray(22) [C11..C66, rho]
     用於橫向非均勻模型。
+    排列順序對齊真實 psitomo：depth 由深到淺（outer）→ lat（mid）→ lon（inner/fastest）。
     """
     nlon, nlat, ndep = len(lon_arr), len(lat_arr), len(dep_arr)
-    dlon = float(lon_arr[1] - lon_arr[0]) if nlon > 1 else 1.0
-    dlat = float(lat_arr[1] - lat_arr[0]) if nlat > 1 else 1.0
-    ddep = float(dep_arr[1] - dep_arr[0]) if ndep > 1 else 1.0
-    clon = float(lon_arr[nlon // 2])
-    clat = float(lat_arr[nlat // 2])
-
     with open(out_path, 'w') as f:
-        f.write(f"  6370.0000, {clon:9.4f}, {clat:9.4f},   0.0000,\n")
-        f.write(f"    {nlon},    {nlat},    {ndep},\n")
-        f.write(f"  {dlon:.4f},   {dlat:.4f},  {ddep:.4f},\n")
-        f.write("   0,\n")
-        for dep in dep_arr:
+        _write_psitomo_header(f, lon_arr, lat_arr, dep_arr)
+        for dep in reversed(list(dep_arr)):          # 深 → 淺（match VIZTOMO）
             for lat in lat_arr:
-                for lon in lon_arr:
+                for lon in lon_arr:                  # lon 最快
                     cij_rho = cij_func3d(float(lon), float(lat), float(dep))
-                    row = np.concatenate([[lon, lat, dep], cij_rho])
+                    row = np.concatenate([[lon, lat, -dep], cij_rho])
                     f.write(','.join(f' {v:>14.5E}' for v in row) + ',\n')
 
     sz = Path(out_path).stat().st_size / 1e6
@@ -148,25 +163,16 @@ def write_psitomo_3d(out_path, lon_arr, lat_arr, dep_arr, cij_func3d):
 def write_psitomo(out_path, lon_arr, lat_arr, dep_arr, cij_func):
     """
     cij_func(dep_km) → ndarray(22) [C11..C66, rho]
-    迴圈順序：depth-outer → lat-mid → lon-inner（與 VIZTOMO 一致）
+    排列順序對齊真實 psitomo：depth 由深到淺（outer）→ lat（mid）→ lon（inner/fastest）。
     """
     nlon, nlat, ndep = len(lon_arr), len(lat_arr), len(dep_arr)
-    dlon = float(lon_arr[1] - lon_arr[0]) if nlon > 1 else 1.0
-    dlat = float(lat_arr[1] - lat_arr[0]) if nlat > 1 else 1.0
-    ddep = float(dep_arr[1] - dep_arr[0]) if ndep > 1 else 1.0
-    clon = float(lon_arr[nlon // 2])
-    clat = float(lat_arr[nlat // 2])
-
     with open(out_path, 'w') as f:
-        f.write(f"  6370.0000, {clon:9.4f}, {clat:9.4f},   0.0000,\n")
-        f.write(f"    {nlon},    {nlat},    {ndep},\n")
-        f.write(f"  {dlon:.4f},   {dlat:.4f},  {ddep:.4f},\n")
-        f.write("   0,\n")
-        for dep in dep_arr:
+        _write_psitomo_header(f, lon_arr, lat_arr, dep_arr)
+        for dep in reversed(list(dep_arr)):          # 深 → 淺（match VIZTOMO）
             cij_rho = cij_func(float(dep))
             for lat in lat_arr:
-                for lon in lon_arr:
-                    row = np.concatenate([[lon, lat, dep], cij_rho])
+                for lon in lon_arr:                  # lon 最快
+                    row = np.concatenate([[lon, lat, -dep], cij_rho])
                     f.write(','.join(f' {v:>14.5E}' for v in row) + ',\n')
 
     sz = Path(out_path).stat().st_size / 1e6
@@ -399,7 +405,7 @@ def main():
     # ── 獨立 psi_input ────────────────────────────────────────────
     print("\n=== Benchmark psi_input（獨立，不依賴台灣真實網絡）===")
     inp_dir = Path(__file__).parent / "bench_psi_input"
-    generate_bench_psi_input(inp_dir, sp_period=50.0)
+    generate_bench_psi_input(inp_dir, sp_period=8.0)   # 對齊 analytical/HFFK T=8s 參考
 
     print("\n=== Done ===")
     print(f"  模型在: {out_dir}/")
