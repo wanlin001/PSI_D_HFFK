@@ -2,9 +2,10 @@
 """
 plot_benchmark_v2.py — PSI_D Benchmark 結果可視化
 
-用法（在 project 目錄執行）：
-    python3 /home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK/validation/plot_benchmark_v2.py \
-        --project .  [--out figs/bench]  [--src 5]
+用法（在 PSI_DIR 執行）：
+    cd /home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK
+    python3 validation/plot_benchmark_v2.py
+    # 輸出在 validation/bench_output/benchmark_v2.png
 
 輸出圖（4欄×3列）：
   Row 0: SI vs BAZ — 解析解 vs Ray SP→SI vs HFFK T=4/8/16/20/25/33/50s
@@ -125,17 +126,15 @@ def read_analytical_csv(csv_path, model_key, period_s=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--project", default=".", help="Project directory")
-    parser.add_argument("--psi-dir",
-                        default="/home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK")
+    PSI_DIR_DEFAULT = "/home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK"
+    parser.add_argument("--psi-dir", default=PSI_DIR_DEFAULT)
     parser.add_argument("--src", type=int, default=None, help="Only plot this source ID")
-    parser.add_argument("--out", default="figs/benchmark_v2",
-                        help="Output figure prefix (no extension)")
+    parser.add_argument("--out", default=None,
+                        help="Output figure prefix (default: validation/bench_output/benchmark_v2)")
     args = parser.parse_args()
 
-    proj  = Path(args.project).resolve()
     psi   = Path(args.psi_dir)
-    out_p = proj / args.out
+    out_p = Path(args.out) if args.out else psi / "validation" / "bench_output" / "benchmark_v2"
     out_p.parent.mkdir(parents=True, exist_ok=True)
 
     csv_path    = psi / "validation" / "bench_models" / "analytical_si.csv"
@@ -195,7 +194,7 @@ def main():
         ax0.plot(baz_an, si_an, 'k--', lw=1.5, label="Analytical", zorder=5)
 
         # Ray SP → SI
-        ray_sp_dir = proj / "psi_output" / f"bench_{mod}_ray"
+        ray_sp_dir = psi / "validation" / "bench_output" / f"bench_{mod}_ray"
         ray_sp_dat = ray_sp_dir / "SYN_SplittingParameters_ShearWave.dat"
         if ray_sp_dat.exists():
             dt_r, phi_r = read_sp(ray_sp_dat)
@@ -209,7 +208,7 @@ def main():
         # HFFK SI 各頻率
         for pi, T in enumerate(PERIODS):
             TT = f"{int(T)}s"
-            hffk_dir = proj / "psi_output" / f"bench_{mod}_hffk_T{TT}"
+            hffk_dir = psi / "validation" / "bench_output" / f"bench_{mod}_hffk_T{TT}"
             hffk_dat = hffk_dir / "SYN_SplittingIntensity_ShearWave.dat"
             if not hffk_dat.exists():
                 continue

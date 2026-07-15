@@ -3,11 +3,13 @@
 #
 # 前置：
 #   git pull && python3 validation/gen_benchmark_psitomo.py
-#   cp -r validation/bench_models /home/wl/work/ASPECT/<PROJECT>/
 #
-# 提交：
-#   cd /home/wl/work/ASPECT/<PROJECT>
-#   sbatch /home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK/validation/job_bench.sh
+# 提交（直接在 software 目錄提交，不需要 project 目錄）：
+#   cd /home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK
+#   sbatch validation/job_bench.sh
+#
+# 輸出全部在：
+#   /home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK/validation/bench_output/
 #
 #SBATCH -J psi_bench
 #SBATCH -p 8358
@@ -16,19 +18,19 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=48:00:00
-#SBATCH -o bench_%j.out
-#SBATCH -e bench_%j.err
+#SBATCH -o validation/bench_%j.out
+#SBATCH -e validation/bench_%j.err
 
 set -e
 
 PSI_DIR=/home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK
-PROJECT_DIR="${SLURM_SUBMIT_DIR}"
 JULIA=/home/wl/software/julia-1.10.0/bin/julia
 TEMPLATE="${PSI_DIR}/psi_input/psi_config_template_v2.toml"
 SRC="${PSI_DIR}/psi_input/Sources_uniform48.dat"
 OBS_SP="${PSI_DIR}/psi_input/DUMMY_SP_uniform48.dat"   # SplittingParameters, period=8s
 OBS_SI="${PSI_DIR}/psi_input/DUMMY_SI_uniform48.dat"   # SplittingIntensity,  period=0 (from toml)
-BENCH_DIR="${PROJECT_DIR}/bench_models"
+BENCH_DIR="${PSI_DIR}/validation/bench_models"
+OUT_BASE="${PSI_DIR}/validation/bench_output"
 PERIODS=(4.0 8.0 16.0 20.0 25.0 33.0 50.0)
 MODELS=(bench_1L_A bench_1L_B bench_2L_A bench_2L_B)
 export JULIA_COPY_STACKS=1
@@ -38,8 +40,8 @@ MIN_LINES=25201
 
 run_psi() {
     local TAG="$1" MODEL_FILE="$2" OBS="$3" OBS_TYPE="$4" PERIOD="$5" HFFK_SP="$6"
-    local OUTDIR="${PROJECT_DIR}/psi_output/${TAG}"
-    local TMPDIR="${PROJECT_DIR}/.tmp_${TAG}_$$"
+    local OUTDIR="${OUT_BASE}/${TAG}"
+    local TMPDIR="${OUT_BASE}/.tmp_${TAG}_$$"
 
     if [[ "${OBS_TYPE}" == "SplittingParameters" ]]; then
         OUTDAT="${OUTDIR}/SYN_SplittingParameters_ShearWave.dat"
@@ -70,9 +72,12 @@ run_psi() {
     echo "===== ${TAG} done ====="
 }
 
+mkdir -p "${OUT_BASE}"
+
 echo "===== Benchmark start $(date) ====="
-echo "Project: ${PROJECT_DIR}"
+echo "PSI_DIR: ${PSI_DIR}"
 echo "Models:  ${BENCH_DIR}"
+echo "Output:  ${OUT_BASE}"
 
 for MOD in "${MODELS[@]}"; do
     MODEL_FILE="${BENCH_DIR}/${MOD}.dat"

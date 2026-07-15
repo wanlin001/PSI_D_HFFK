@@ -20,7 +20,7 @@ gen_benchmark_psitomo.py — PSI_D benchmark 合成各向異性模型生成器
 wl 上：
   cd /home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK
   git pull && python3 validation/gen_benchmark_psitomo.py
-  cp -r validation/bench_models /home/wl/work/ASPECT/<PROJECT>/
+  sbatch validation/job_bench.sh   # 直接在 PSI_DIR 提交，輸出在 validation/bench_output/
 """
 
 import numpy as np
@@ -259,8 +259,9 @@ def main():
 
     print("\n=== Done ===")
     print(f"  模型在: {out_dir}/")
-    print(f"  wl: cp -r validation/bench_models /home/wl/work/ASPECT/<PROJECT>/")
-    print(f"       sbatch /home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK/validation/job_bench.sh")
+    print(f"  wl: cd /home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK")
+    print(f"       sbatch validation/job_bench.sh")
+    print(f"       # 輸出在 validation/bench_output/")
 
 
 if __name__ == "__main__":
