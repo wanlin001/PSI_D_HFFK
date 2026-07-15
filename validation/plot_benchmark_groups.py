@@ -20,11 +20,11 @@ plot_benchmark_groups.py — PSI_D Benchmark 分組比較圖
     python3 validation/plot_benchmark_groups.py [--out validation/bench_output/groups]
 
 需要：
-    validation/bench_output/  (job_bench.sh 跑完後)
+    validation/bench_output/     (job_bench.sh 跑完後)
     validation/bench_models/analytical_si.csv
-    psi_input/Sources_uniform48.dat
-    psi_input/DUMMY_SP_uniform48.dat
-    psi_input/DUMMY_SI_uniform48.dat
+    validation/bench_psi_input/Sources.dat
+    validation/bench_psi_input/DUMMY_SP.dat
+    validation/bench_psi_input/DUMMY_SI.dat
 """
 
 import argparse
@@ -45,13 +45,29 @@ T_ALL_COLORS= cm.plasma(np.linspace(0.1, 0.9, len(PERIODS_ALL)))
 
 PSI_DIR_DEFAULT = "/home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK"
 
+# bench_psi_input 的接收站中心（用來計算 BAZ）
+RCV_CENTER_LON = 123.0
+RCV_CENTER_LAT = 24.0
+
 
 # ══════════════════════════════════════════════════════════════════
 # 資料讀取
 # ══════════════════════════════════════════════════════════════════
 
+def _baz(src_lon, src_lat,
+         rcv_lon=RCV_CENTER_LON, rcv_lat=RCV_CENTER_LAT) -> float:
+    """計算 BAZ（接收站 → 震源方位角，度，0–360°）。"""
+    phi_r = np.radians(rcv_lat)
+    phi_s = np.radians(src_lat)
+    dlam  = np.radians(src_lon - rcv_lon)
+    y = np.sin(dlam) * np.cos(phi_s)
+    x = (np.cos(phi_r)*np.sin(phi_s)
+         - np.sin(phi_r)*np.cos(phi_s)*np.cos(dlam))
+    return float(np.degrees(np.arctan2(y, x)) % 360)
+
+
 def read_sources_baz(sources_dat) -> dict:
-    """src_id (str) → BAZ_deg (float)，從 Sources.dat 第 4 欄讀取。"""
+    """src_id (str) → BAZ_deg (float)，由震源 lon/lat 對接收站中心計算。"""
     baz = {}
     with open(sources_dat) as f:
         for ln in f:
@@ -59,8 +75,8 @@ def read_sources_baz(sources_dat) -> dict:
             if not ln or ln.startswith('#'):
                 continue
             p = [x.strip() for x in ln.split(',')]
-            if len(p) >= 4:
-                baz[p[0]] = float(p[3])
+            if len(p) >= 3:
+                baz[p[0]] = _baz(float(p[1]), float(p[2]))
     return baz
 
 
@@ -196,10 +212,11 @@ def main():
 
     psi       = Path(args.psi_dir)
     bench_out = psi / "validation" / "bench_output"
+    bench_inp = psi / "validation" / "bench_psi_input"
     csv_path  = psi / "validation" / "bench_models" / "analytical_si.csv"
-    src_file  = psi / "psi_input" / "Sources_uniform48.dat"
-    dummy_sp  = psi / "psi_input" / "DUMMY_SP_uniform48.dat"
-    dummy_si  = psi / "psi_input" / "DUMMY_SI_uniform48.dat"
+    src_file  = bench_inp / "Sources.dat"
+    dummy_sp  = bench_inp / "DUMMY_SP.dat"
+    dummy_si  = bench_inp / "DUMMY_SI.dat"
     out_p     = Path(args.out) if args.out else bench_out / "benchmark_groups"
     out_p.parent.mkdir(parents=True, exist_ok=True)
 

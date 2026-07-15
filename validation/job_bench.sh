@@ -25,9 +25,10 @@ set -e
 PSI_DIR=/home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK
 JULIA=/home/wl/software/julia-1.10.0/bin/julia
 TEMPLATE="${PSI_DIR}/psi_input/psi_config_template_v2.toml"
-SRC="${PSI_DIR}/psi_input/Sources_uniform48.dat"
-OBS_SP="${PSI_DIR}/psi_input/DUMMY_SP_uniform48.dat"
-OBS_SI="${PSI_DIR}/psi_input/DUMMY_SI_uniform48.dat"
+BENCH_INP="${PSI_DIR}/validation/bench_psi_input"   # 獨立 benchmark 測站/震源
+SRC="${BENCH_INP}/Sources.dat"
+OBS_SP="${BENCH_INP}/DUMMY_SP.dat"
+OBS_SI="${BENCH_INP}/DUMMY_SI.dat"
 BENCH_DIR="${PSI_DIR}/validation/bench_models"
 OUT_BASE="${SLURM_SUBMIT_DIR}/bench_output"   # /lfs/wl/bench_psi/bench_output
 
@@ -39,7 +40,7 @@ UNIFORM_MODELS=(bench_1L_A bench_1L_B bench_2L_A bench_2L_B)
 # 橫向非均勻模型（HFFK period 差異診斷）
 LATERAL_MODELS=(bench_lateral_B bench_lateral_C)
 
-MIN_LINES=25201   # 48 sources × 525 receivers + 1
+MIN_LINES=145   # 16 sources × 9 receivers + 1
 export JULIA_COPY_STACKS=1
 
 # ── 函式 ─────────────────────────────────────────────────────────
@@ -71,6 +72,14 @@ run_psi() {
         -e "s|__N_AZIMUTH__|8|g" \
         -e "s|__SOURCES_DAT__|${SRC}|g" \
         "${TEMPLATE}" > "${TMPDIR}/psi_config.toml"
+
+    # 覆蓋 receiver_data：template 可能寫死真實台灣網絡（TW0001 在 116.5°E，
+    # 落在 benchmark 模型格網外 → "Receiver located outside model space")。
+    # 強制指向 benchmark 專用測站（處理 placeholder 或寫死的絕對路徑兩種情形）。
+    sed -i \
+        -e "s|__RECEIVERS_DAT__|${BENCH_INP}/Receivers.dat|g" \
+        -e "s|^receiver_data.*|receiver_data = \"${BENCH_INP}/Receivers.dat\"|g" \
+        "${TMPDIR}/psi_config.toml"
 
     ${JULIA} --project=${PSI_DIR} ${PSI_DIR}/scripts/run_psi.jl "${TMPDIR}"
     rm -rf "${TMPDIR}"

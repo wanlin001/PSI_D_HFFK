@@ -213,6 +213,77 @@ def si_2layer(phi1_deg, dt1_s, phi2_deg, dt2_s, baz_arr, period_s=8.0):
 
 
 # ══════════════════════════════════════════════════════════════════
+# 獨立 psi_input 生成（benchmark 專用，不依賴真實台灣網絡）
+# ══════════════════════════════════════════════════════════════════
+
+CENTER_LON = 123.0
+CENTER_LAT = 24.0
+N_BAZ      = 16
+DELTA_DEG  = 100.0   # 震央距（度）
+
+
+def _src_position(baz_deg, delta_deg, rcv_lon, rcv_lat):
+    """大圓弧：由接收站位置 + BAZ + 震央距 → 震源 (lon, lat)。"""
+    d   = np.radians(delta_deg)
+    phi = np.radians(rcv_lat)
+    lam = np.radians(rcv_lon)
+    az  = np.radians(baz_deg)
+    phi_s = np.arcsin(np.sin(phi)*np.cos(d) + np.cos(phi)*np.sin(d)*np.cos(az))
+    lam_s = lam + np.arctan2(np.sin(az)*np.sin(d)*np.cos(phi),
+                              np.cos(d) - np.sin(phi)*np.sin(phi_s))
+    return float(np.degrees(lam_s)), float(np.degrees(phi_s))
+
+
+def generate_bench_psi_input(out_dir, sp_period=50.0):
+    """
+    產生 benchmark 專用 psi_input（與真實台灣測站無關）：
+      Receivers.dat  — 9 虛擬接收站 3×3 grid ±0.1° 圍繞 (123°E,24°N), dep=0
+      Sources.dat    — 16 均勻 BAZ 震源，Δ=100°
+      DUMMY_SI.dat   — SI 觀測（paz=0）
+      DUMMY_SP.dat   — SP 觀測（paz=0, period={sp_period}s）
+    """
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # 接收站：3×3 in ±0.1°（都在模型範圍內，dep=0）
+    rcv = []
+    for i, dy in enumerate([-0.1, 0.0, 0.1]):
+        for j, dx in enumerate([-0.1, 0.0, 0.1]):
+            rcv.append((f"B{i*3+j+1:02d}",
+                        CENTER_LON + dx, CENTER_LAT + dy, 0.0))
+    with open(out_dir / "Receivers.dat", "w") as f:
+        for code, lo, la, dep in rcv:
+            f.write(f"{code}, {lo:.6f}, {la:.6f}, {dep:.1f}\n")
+    print(f"  [{len(rcv):3d} receivers] → {out_dir}/Receivers.dat")
+
+    # 震源：16 均勻 BAZ
+    baz_arr = np.arange(0., 360., 360. / N_BAZ)
+    src = []
+    for i, baz in enumerate(baz_arr):
+        lo, la = _src_position(baz, DELTA_DEG, CENTER_LON, CENTER_LAT)
+        src.append((i + 1, lo, la, -100.0))
+    with open(out_dir / "Sources.dat", "w") as f:
+        for sid, lo, la, dep in src:
+            f.write(f"{sid}, {lo:.6f}, {la:.6f}, {dep:.1f}\n")
+    print(f"  [{len(src):3d} sources   ] → {out_dir}/Sources.dat")
+
+    # DUMMY 觀測檔
+    rcv_ids = [r[0] for r in rcv]
+    src_ids = [s[0] for s in src]
+    n_obs   = len(src_ids) * len(rcv_ids)
+    with open(out_dir / "DUMMY_SI.dat", "w") as f:
+        for sid in src_ids:
+            for rid in rcv_ids:
+                f.write(f"0.0, 0.1, 0.0, SKS, {sid}, {rid}, ???, 0.0\n")
+    print(f"  [{n_obs:5d} obs     ] → {out_dir}/DUMMY_SI.dat")
+    with open(out_dir / "DUMMY_SP.dat", "w") as f:
+        for sid in src_ids:
+            for rid in rcv_ids:
+                f.write(f"0.0, 0.0, 0.1, 0.1, {sp_period}, SKS, {sid}, {rid}, ???, 0.0\n")
+    print(f"  [{n_obs:5d} obs     ] → {out_dir}/DUMMY_SP.dat  (period_s={sp_period})")
+
+
+# ══════════════════════════════════════════════════════════════════
 # 主程式
 # ══════════════════════════════════════════════════════════════════
 
@@ -220,20 +291,22 @@ def main():
     out_dir = Path(__file__).parent / "bench_models"
     out_dir.mkdir(exist_ok=True)
 
-    # ── 網格定義（台灣為中心）────────────────────────────────────
-    # Grid A: 粗, 5×5×11, dep 60-360 km, ddep=30 km
-    # 使用和 Grid B 同樣的地理範圍 (119-127°E, 20-28°N) 但 2° 間距
-    # → 解析度測試：相同區域，粗(2°) vs 細(1°)；避免站點落在邊界外
+    # ── 網格定義（台灣為中心 123°E, 24°N）──────────────────────
+    # 全部模型從 dep=0 開始，確保地表接收站在模型範圍內
+    # Grid A/B 覆蓋「相同」地理+深度範圍，只差網格疏密 → 真正的解析度測試
+    #   → 1L_A 與 1L_B 是同一物理模型，SI 必須重疊（δt 相同）
+    #
+    # Grid A: 粗, 5×5×13,  dep 0-600 km (step 50km), lon/lat 2° spacing
+    # Grid B: 細, 9×9×21,  dep 0-600 km (step 30km), lon/lat 1° spacing
     lon_A = np.linspace(119., 127., 5)
     lat_A = np.linspace(20.,  28.,  5)
-    dep_A = np.linspace(60.,  360., 11)
-    thk_A = float(dep_A[-1] - dep_A[0])   # 300 km
+    dep_A = np.linspace(0., 600., 13)           # 13 pts: 0-600km, step 50km
+    thk_A = float(dep_A[-1] - dep_A[0])         # 600 km
 
-    # Grid B: 細, 9×9×21, dep 30-630 km, ddep=30 km
     lon_B = np.linspace(119., 127., 9)
     lat_B = np.linspace(20.,  28.,  9)
-    dep_B = np.linspace(30.,  630., 21)
-    thk_B = float(dep_B[-1] - dep_B[0])   # 600 km
+    dep_B = np.arange(0., 601., 30.)            # 21 pts: 0-600km, step 30km
+    thk_B = float(dep_B[-1] - dep_B[0])         # 600 km
 
     # 各種組合的 δt（均一 DVs = 0.101 km/s）
     dt_1A  = delta_t_km(thk_A)          # 單層 Grid A: 1.50 s
@@ -323,11 +396,18 @@ def main():
                delimiter=',', header=','.join(hdr), comments='', fmt='%.6f')
     print(f"  → {out_dir}/analytical_si.csv  ({len(rows)} BAZ steps × {len(hdr)} columns)")
 
+    # ── 獨立 psi_input ────────────────────────────────────────────
+    print("\n=== Benchmark psi_input（獨立，不依賴台灣真實網絡）===")
+    inp_dir = Path(__file__).parent / "bench_psi_input"
+    generate_bench_psi_input(inp_dir, sp_period=50.0)
+
     print("\n=== Done ===")
     print(f"  模型在: {out_dir}/")
+    print(f"  psi_input: {inp_dir}/")
     print(f"  wl: cd /home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK")
-    print(f"       sbatch validation/job_bench.sh")
-    print(f"       # 輸出在 validation/bench_output/")
+    print(f"       git pull && python3 validation/gen_benchmark_psitomo.py")
+    print(f"       mkdir -p /lfs/wl/bench_psi && cd /lfs/wl/bench_psi")
+    print(f"       sbatch /home/wl/.../validation/job_bench.sh")
 
 
 if __name__ == "__main__":
