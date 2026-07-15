@@ -63,15 +63,20 @@ def write_dummy_si(out_path, src_ids, rcv_ids, phase="SKS"):
     print(f"  [{n:7d} lines] → {out_path}")
 
 
-def write_dummy_sp(out_path, src_ids, rcv_ids, phase="SKS"):
-    """dt, phi, err_dt, err_phi, period_s, phase, src_id, rcv_id, quality, paz_rad"""
+def write_dummy_sp(out_path, src_ids, rcv_ids, phase="SKS", period_s=8.0):
+    """dt, phi, err_dt, err_phi, period_s, phase, src_id, rcv_id, quality, paz_rad
+    NOTE: period_s must be > 0. PSI_D reads Phase.period from this column for SP
+    observations (kernel_split_wavelet), and period<=0 throws 'Infinte frequency split!'.
+    For SI observations, PSI_D uses dominant_period from the model toml instead.
+    Set period_s to match dominant_period in the job toml (default 8.0 s).
+    """
     n = 0
     with open(out_path, "w") as f:
         for sid in src_ids:
             for rid in rcv_ids:
-                f.write(f"0.0, 0.0, 0.1, 0.1, 0.0, {phase}, {sid}, {rid}, ???, {PAZ_RAD}\n")
+                f.write(f"0.0, 0.0, 0.1, 0.1, {period_s}, {phase}, {sid}, {rid}, ???, {PAZ_RAD}\n")
                 n += 1
-    print(f"  [{n:7d} lines] → {out_path}")
+    print(f"  [{n:7d} lines] → {out_path}  (period_s={period_s})")
 
 
 def patch_paz_in_file(path):
@@ -90,7 +95,7 @@ def patch_paz_in_file(path):
 
 # ── Mode A: PSI_DIR/psi_input (uniform48/96 + Kuo2018 real stations) ────────
 
-def gen_psidir_dummies(psi_dir):
+def gen_psidir_dummies(psi_dir, sp_period=8.0):
     indir = psi_dir / "psi_input"
     print(f"\n=== Mode A: PSI_DIR/psi_input = {indir} ===")
 
@@ -106,7 +111,7 @@ def gen_psidir_dummies(psi_dir):
         sid48 = list(range(1, count_lines(src48) + 1))
         print(f"  uniform48: {len(sid48)} sources")
         write_dummy_si(indir / "DUMMY_SI_uniform48.dat", sid48, rcv_ids, phase="SKS")
-        write_dummy_sp(indir / "DUMMY_SP_uniform48.dat", sid48, rcv_ids, phase="SKS")
+        write_dummy_sp(indir / "DUMMY_SP_uniform48.dat", sid48, rcv_ids, phase="SKS", period_s=sp_period)
     else:
         print(f"  [SKIP] {src48} not found")
 
@@ -132,7 +137,7 @@ def gen_psidir_dummies(psi_dir):
 
 # ── Mode B: project/psi_input (SinkingSlab, any synthetic project) ───────────
 
-def gen_project_dummies(project_dir):
+def gen_project_dummies(project_dir, sp_period=8.0):
     indir = project_dir / "psi_input"
     print(f"\n=== Mode B: project/psi_input = {indir} ===")
 
@@ -159,7 +164,7 @@ def gen_project_dummies(project_dir):
     write_dummy_si(indir / "DUMMY_SplittingIntensity_ShearWave.dat",
                    src_ids, rcv_ids, phase=phase)
     write_dummy_sp(indir / "DUMMY_SplittingParameters_ShearWave.dat",
-                   src_ids, rcv_ids, phase=phase)
+                   src_ids, rcv_ids, phase=phase, period_s=sp_period)
 
 
 # ── Mode C: patch existing files in-place ────────────────────────────────────
@@ -178,6 +183,10 @@ def main():
                         help="Mode B: project directory (has psi_input/Sources.dat)")
     parser.add_argument("--patch",   metavar="FILE", nargs="+",
                         help="Mode C: patch paz in existing DUMMY files in-place")
+    parser.add_argument("--sp-period", metavar="PERIOD", type=float, default=8.0,
+                        help="Dominant period (s) for DUMMY_SP files (default: 8.0). "
+                             "Must match dominant_period in job toml. SP observations read "
+                             "Phase.period from this column; period=0 crashes PSI_D.")
     args = parser.parse_args()
 
     print(f"paz_rad will be set to: {PAZ_RAD}  (0.0 = correct for SKS/SV)")
@@ -185,11 +194,11 @@ def main():
     if args.patch:
         patch_files(args.patch)
     elif args.project:
-        gen_project_dummies(Path(args.project).resolve())
+        gen_project_dummies(Path(args.project).resolve(), sp_period=args.sp_period)
     else:
         # Mode A: PSI_DIR = parent of this script's scripts/ dir
         psi_dir = Path(__file__).parent.parent
-        gen_psidir_dummies(psi_dir)
+        gen_psidir_dummies(psi_dir, sp_period=args.sp_period)
 
     print("\n✓ Done. Rerun all PSI_D jobs to get correct SI outputs.")
     print("  jobA (Ray SP) + jobC (HFFK SI uniform48/96) + jobD (HFFK SI Kuo2018)")
