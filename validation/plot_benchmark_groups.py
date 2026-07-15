@@ -449,7 +449,7 @@ def main():
         ax1.set_xlim(0, 360)
         ax1.set_ylim(-y_si, y_si)
         ax1.axhline(0, color='gray', lw=0.5, ls='--')
-        ax1.set_ylabel("ΔHFFK−Ray (s)", fontsize=9)
+        ax1.set_ylabel("Δ SI (s)  (see panel title)", fontsize=9)
         ax1.legend(fontsize=7, ncol=1, loc="upper right")
         ax1.set_xlabel("BAZ (°)", fontsize=9)
 
