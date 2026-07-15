@@ -310,7 +310,7 @@ def main():
     # ── 圖形配置 ─────────────────────────────────────────────────
     fig, axes = plt.subplots(2, 4, figsize=(22, 10), constrained_layout=True)
     fig.suptitle(
-        "PSI_D Benchmark — 分組比較\n"
+        "PSI_D Benchmark — grouped comparison\n"
         "Col A: Resolution  |  Col B: Single layer (1L_B)  |"
         "  Col C: Two layers (2L_B)  |  Col D: Period effect (lateral_B)",
         fontsize=12, fontweight='bold'
@@ -334,7 +334,7 @@ def main():
     # ════════════════════════════════════════════════════════════
     axA0, axA1 = axes[0, 0], axes[1, 0]
     axA0.set_title("A — Resolution\n1L_A (coarse) vs 1L_B (fine)", fontsize=10)
-    axA1.set_title("A — Residual 1L_B − 1L_A\n(HFFK T=8s, 應趨近 0)", fontsize=9)
+    axA1.set_title("A — Residual 1L_B - 1L_A\n(HFFK T=8s, should -> 0)", fontsize=9)
 
     for mod, color, ls in [("bench_1L_A", "tab:blue", "--"),
                             ("bench_1L_B", "tab:orange", "-")]:
@@ -363,7 +363,7 @@ def main():
     # ════════════════════════════════════════════════════════════
     axB0, axB1 = axes[0, 1], axes[1, 1]
     axB0.set_title("B — Single layer (1L_B)\nanalytical + ray + HFFK T=4–50 s", fontsize=10)
-    axB1.set_title("B — HFFK(T) − Ray  (應趨近 0)", fontsize=9)
+    axB1.set_title("B — HFFK(T) - Ray  (should -> 0)", fontsize=9)
 
     # 解析解
     baz_an, si_an = load_analytical(csv_path, "SI_1L_B")
@@ -384,7 +384,7 @@ def main():
     # ════════════════════════════════════════════════════════════
     axC0, axC1 = axes[0, 2], axes[1, 2]
     axC0.set_title("C — Two layers (2L_B)\nanalytical(T=8s) + ray + HFFK T=4–50 s", fontsize=10)
-    axC1.set_title("C — HFFK(T) − Ray  (中等差異)", fontsize=9)
+    axC1.set_title("C — HFFK(T) - Ray  (2L: SI additive, ~T-indep)", fontsize=9)
 
     baz_an2, si_an2 = load_analytical(csv_path, "SI_2L_B_T8s")
     if baz_an2 is not None:
@@ -408,7 +408,7 @@ def main():
         fontsize=10
     )
     axD1.set_title(
-        "D — HFFK(T) − Ray\n(T=50s 最大 → Fresnel 平均兩側)", fontsize=9
+        "D — HFFK(T) - Ray\n(T=50s largest -> Fresnel averages both sides)", fontsize=9
     )
 
     bRLB, sRLB = load_ray(bench_out, "bench_lateral_B", sp_src_ids, src_baz)
@@ -445,8 +445,8 @@ def main():
 
     # ── 第二張圖：r vs period（所有模型）─────────────────────────
     fig2, ax = plt.subplots(figsize=(9, 5))
-    ax.set_title("r vs Period — 各方法與 Ray 的 Pearson 相關係數\n"
-                 "（lateral_B: T=50s 應最低）", fontsize=11)
+    ax.set_title("r vs Period — Pearson r of each method vs Ray\n"
+                 "(lateral_B: lowest at T=50s)", fontsize=11)
 
     models_r = {
         "1L_B":      ("bench_1L_B",      "tab:blue",   "o-"),
