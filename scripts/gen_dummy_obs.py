@@ -63,7 +63,7 @@ def write_dummy_si(out_path, src_ids, rcv_ids, phase="SKS"):
     print(f"  [{n:7d} lines] → {out_path}")
 
 
-def write_dummy_sp(out_path, src_ids, rcv_ids, phase="SKS", period_s=8.0):
+def write_dummy_sp(out_path, src_ids, rcv_ids, phase="SKS", period_s=50.0):
     """dt, phi, err_dt, err_phi, period_s, phase, src_id, rcv_id, quality, paz_rad
     NOTE: period_s must be > 0. PSI_D reads Phase.period from this column for SP
     observations (kernel_split_wavelet), and period<=0 throws 'Infinte frequency split!'.
@@ -183,10 +183,11 @@ def main():
                         help="Mode B: project directory (has psi_input/Sources.dat)")
     parser.add_argument("--patch",   metavar="FILE", nargs="+",
                         help="Mode C: patch paz in existing DUMMY files in-place")
-    parser.add_argument("--sp-period", metavar="PERIOD", type=float, default=8.0,
-                        help="Dominant period (s) for DUMMY_SP files (default: 8.0). "
-                             "Must match dominant_period in job toml. SP observations read "
-                             "Phase.period from this column; period=0 crashes PSI_D.")
+    parser.add_argument("--sp-period", metavar="PERIOD", type=float, default=50.0,
+                        help="Period (s) for DUMMY_SP files (default: 50.0). "
+                             "SP observations read Phase.period from this column for wavelet "
+                             "construction; period=0 crashes PSI_D. Use large T>>δt (~50s) "
+                             "to approximate infinite-frequency (ray theory) SP.")
     args = parser.parse_args()
 
     print(f"paz_rad will be set to: {PAZ_RAD}  (0.0 = correct for SKS/SV)")
