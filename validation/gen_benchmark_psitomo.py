@@ -183,9 +183,15 @@ def write_psitomo(out_path, lon_arr, lat_arr, dep_arr, cij_func):
 # 解析解
 # ══════════════════════════════════════════════════════════════════
 
+# PSI_D 的 splitting intensity kernel = 0.5·(1/vs_slow−1/vs_fast)·sin(2ζ)
+# = 0.5·δt·sin(2(φ−BAZ))（Chevrot 2000 慣例，含 0.5 因子）。
+# analytical 與 SP→SI 都乘 0.5 才能和 PSI_D HFFK SI 對齊。
+SI_HALF = 0.5
+
+
 def si_1layer(phi_deg, dt_s, baz_arr):
-    """單層解析 SI。SI = δt·sin(2(φ−BAZ))"""
-    return dt_s * np.sin(2 * (np.radians(phi_deg) - np.radians(baz_arr)))
+    """單層解析 SI = 0.5·δt·sin(2(φ−BAZ))（Chevrot 慣例）"""
+    return SI_HALF * dt_s * np.sin(2 * (np.radians(phi_deg) - np.radians(baz_arr)))
 
 
 def si_2layer(phi1_deg, dt1_s, phi2_deg, dt2_s, baz_arr, period_s=8.0):
@@ -215,7 +221,10 @@ def si_2layer(phi1_deg, dt1_s, phi2_deg, dt2_s, baz_arr, period_s=8.0):
     dt_app = (2. / omega) * np.arcsin(absH)
     ph_app = 0.5 * np.angle(H)
 
-    return dt_app * np.sin(2 * (ph_app - baz))
+    # 注意：此為「視分裂參數」代入 SI 公式（Silver-Savage 波形干涉）。
+    # PSI_D 的 SI 觀測量對多層是「可加」的（不含干涉），兩者本質不同——
+    # 此曲線僅作參考，不應期待與 HFFK 2L 重疊。0.5 對齊 Chevrot 慣例。
+    return SI_HALF * dt_app * np.sin(2 * (ph_app - baz))
 
 
 # ══════════════════════════════════════════════════════════════════

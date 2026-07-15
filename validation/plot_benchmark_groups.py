@@ -149,14 +149,19 @@ def si_per_baz(si_arr, src_ids, src_baz_map):
     return baz_vals, si_mean
 
 
+# PSI_D 的 SI kernel 含 0.5 因子（Chevrot 2000）：SI = 0.5·δt·sin(2(φ−BAZ))。
+# SP→SI 轉換也要乘 0.5 才能和 PSI_D HFFK SI 同一尺度。
+SI_HALF = 0.5
+
+
 def sp_to_si_per_baz(dt_arr, phi_arr, src_ids, src_baz_map):
-    """SP → SI = δt·sin(2(φ−BAZ))，按 source BAZ 分組取 mean。"""
+    """SP → SI = 0.5·δt·sin(2(φ−BAZ))（Chevrot 慣例），按 source BAZ 分組取 mean。"""
     from collections import defaultdict
     groups = defaultdict(list)
     for dt, phi, sid in zip(dt_arr, phi_arr, src_ids):
         if sid in src_baz_map:
             b_rad = np.radians(src_baz_map[sid])
-            si = dt * np.sin(2 * (phi - b_rad))
+            si = SI_HALF * dt * np.sin(2 * (phi - b_rad))
             groups[src_baz_map[sid]].append(si)
     if not groups:
         return np.array([]), np.array([])
