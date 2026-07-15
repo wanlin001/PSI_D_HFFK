@@ -3,10 +3,10 @@
 gen_benchmark_psitomo.py — PSI_D benchmark 合成各向異性模型生成器
 
 輸出 6 個 psitomo 檔 + 1 個解析解 CSV：
-  bench_1L_A.dat    — 單層均勻，粗 5×5×11, dep 60-360 km
-  bench_1L_B.dat    — 單層均勻，細 9×9×21, dep 30-630 km   (resolution test)
-  bench_2L_A.dat    — 雙層均勻，粗 5×5×11
-  bench_2L_B.dat    — 雙層均勻，細 9×9×21                  (two-layer interference)
+  bench_1L_A.dat    — 單層均勻，粗 5×5×11, 119-127°E 20-28°N dep 60-360 km (2°spacing)
+  bench_1L_B.dat    — 單層均勻，細 9×9×21, 119-127°E 20-28°N dep 30-630 km (1°spacing)
+  bench_2L_A.dat    — 雙層均勻，粗 5×5×11 (同 A)
+  bench_2L_B.dat    — 雙層均勻，細 9×9×21 (同 B)           (two-layer interference)
   bench_lateral_B.dat — 橫向邊界，細 9×9×21                (HFFK period 差異最明顯)
   bench_lateral_B_fine.dat — 橫向邊界，超細 17×17×21       (確認 resolution 無影響)
   analytical_si.csv
@@ -222,8 +222,10 @@ def main():
 
     # ── 網格定義（台灣為中心）────────────────────────────────────
     # Grid A: 粗, 5×5×11, dep 60-360 km, ddep=30 km
-    lon_A = np.linspace(121., 125., 5)
-    lat_A = np.linspace(22.,  26.,  5)
+    # 使用和 Grid B 同樣的地理範圍 (119-127°E, 20-28°N) 但 2° 間距
+    # → 解析度測試：相同區域，粗(2°) vs 細(1°)；避免站點落在邊界外
+    lon_A = np.linspace(119., 127., 5)
+    lat_A = np.linspace(20.,  28.,  5)
     dep_A = np.linspace(60.,  360., 11)
     thk_A = float(dep_A[-1] - dep_A[0])   # 300 km
 
