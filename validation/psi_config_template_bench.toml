@@ -1,0 +1,48 @@
+# PSI_D config template — benchmark (self-contained, no hardcoded paths)
+# 由 job_bench.sh 用 sed 填入 placeholder：
+#   __OUTPUT_DIR__   → bench_output/<tag>
+#   __MODEL_DAT__    → validation/bench_models/<model>.dat
+#   __OBS_TYPE__     → SplittingIntensity  或  SplittingParameters
+#   __OBS_FILE__     → DUMMY 觀測檔絕對路徑
+#   __HFFK_SP__      → (只給 SplittingParameters) tf_hffk_sp = true/false；SI 給空字串
+#   __PERIOD__       → dominant period (s)
+#   __N_RINGS__      → Fresnel zone 徑向環數 (>=1 才啟用 HFFK)
+#   __N_AZIMUTH__    → 每環方位取樣數
+#   __SOURCES_DAT__  → Sources.dat 絕對路徑
+#   __RECEIVERS_DAT__→ Receivers.dat 絕對路徑（benchmark 專用測站）
+#   __REFMODEL__     → ak135_no_crust.tvel 絕對路徑
+#
+# 注意：即使是 ray SP run，FiniteFrequency 區塊仍存在；靠 tf_hffk_sp=false
+#       讓 SplittingParameters 走 ray theory。SI run 則完整啟用 HFFK。
+
+[Output]
+output_directory = "__OUTPUT_DIR__"
+tf_time_stamp = false
+
+[Observations.__OBS_TYPE__.ShearWave]
+filename = "__OBS_FILE__"
+__HFFK_SP__
+
+[Model]
+parameterisation = "ElasticVoigt"
+tf_global_cartesian = false
+theModel = "__MODEL_DAT__"
+
+[Model.CoordinateSystem]
+type = "LocalGeographic"
+
+[Model.Mesh]
+type = "RegularGrid"
+
+[Model.Aquisition]
+source_data   = "__SOURCES_DAT__"
+receiver_data = "__RECEIVERS_DAT__"
+
+[Model.Methods.TauP]
+reference_model = "__REFMODEL__"
+DL = 10.0
+
+[Model.Methods.FiniteFrequency]
+dominant_period = __PERIOD__
+n_rings         = __N_RINGS__
+n_azimuth       = __N_AZIMUTH__

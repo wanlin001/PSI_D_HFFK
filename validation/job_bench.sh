@@ -24,7 +24,8 @@ set -e
 
 PSI_DIR=/home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK
 JULIA=/home/wl/software/julia-1.10.0/bin/julia
-TEMPLATE="${PSI_DIR}/psi_input/psi_config_template_v2.toml"
+TEMPLATE="${PSI_DIR}/validation/psi_config_template_bench.toml"  # 自足，含 __RECEIVERS_DAT__/__REFMODEL__ placeholder
+REFMODEL="${PSI_DIR}/psi_input/ak135_no_crust.tvel"
 BENCH_INP="${PSI_DIR}/validation/bench_psi_input"   # 獨立 benchmark 測站/震源
 SRC="${BENCH_INP}/Sources.dat"
 OBS_SP="${BENCH_INP}/DUMMY_SP.dat"
@@ -71,14 +72,13 @@ run_psi() {
         -e "s|__N_RINGS__|3|g" \
         -e "s|__N_AZIMUTH__|8|g" \
         -e "s|__SOURCES_DAT__|${SRC}|g" \
+        -e "s|__RECEIVERS_DAT__|${BENCH_INP}/Receivers.dat|g" \
+        -e "s|__REFMODEL__|${REFMODEL}|g" \
         "${TEMPLATE}" > "${TMPDIR}/psi_config.toml"
 
-    # 覆蓋 receiver_data：template 可能寫死真實台灣網絡（TW0001 在 116.5°E，
-    # 落在 benchmark 模型格網外 → "Receiver located outside model space")。
-    # 強制指向 benchmark 專用測站（處理 placeholder 或寫死的絕對路徑兩種情形）。
-    sed -i \
-        -e "s|__RECEIVERS_DAT__|${BENCH_INP}/Receivers.dat|g" \
-        -e "s|^receiver_data.*|receiver_data = \"${BENCH_INP}/Receivers.dat\"|g" \
+    # 保險：若曾用寫死 receiver_data 的舊 template，也強制指向 benchmark 測站
+    # （benchmark 模型格網 119-127°E；真實 TW0001 在 116.5°E 會出界）。
+    sed -i "s|^receiver_data.*|receiver_data = \"${BENCH_INP}/Receivers.dat\"|g" \
         "${TMPDIR}/psi_config.toml"
 
     ${JULIA} --project=${PSI_DIR} ${PSI_DIR}/scripts/run_psi.jl "${TMPDIR}"
