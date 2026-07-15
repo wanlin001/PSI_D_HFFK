@@ -155,13 +155,17 @@ SI_HALF = 0.5
 
 
 def sp_to_si_per_baz(dt_arr, phi_arr, src_ids, src_baz_map):
-    """SP → SI = 0.5·δt·sin(2(φ−BAZ))（Chevrot 慣例），按 source BAZ 分組取 mean。"""
+    """SP → SI = 0.5·δt·sin(2(BAZ−φ))（PSI_D SI 慣例），按 source BAZ 分組取 mean。
+
+    注意：SP 的 phi 慣例與 SI 觀測量的符號慣例在 PSI_D 內部不完全一致，
+    此轉換僅在單層近似下與 HFFK SI 對齊；殘差比較請用 HFFK T=4s 當 ray 極限。
+    """
     from collections import defaultdict
     groups = defaultdict(list)
     for dt, phi, sid in zip(dt_arr, phi_arr, src_ids):
         if sid in src_baz_map:
             b_rad = np.radians(src_baz_map[sid])
-            si = SI_HALF * dt * np.sin(2 * (phi - b_rad))
+            si = SI_HALF * dt * np.sin(2 * (b_rad - phi))
             groups[src_baz_map[sid]].append(si)
     if not groups:
         return np.array([]), np.array([])
@@ -368,9 +372,9 @@ def main():
     # ════════════════════════════════════════════════════════════
     axB0, axB1 = axes[0, 1], axes[1, 1]
     axB0.set_title("B — Single layer (1L_B)\nanalytical + ray + HFFK T=4–50 s", fontsize=10)
-    axB1.set_title("B — HFFK(T) - Ray  (should -> 0)", fontsize=9)
+    axB1.set_title("B — HFFK(T) - HFFK(4s)  (uniform: ~0)", fontsize=9)
 
-    # 解析解
+    # 解析解（PSI_D SI 慣例，應與 HFFK 重合）
     baz_an, si_an = load_analytical(csv_path, "SI_1L_B")
     if baz_an is not None:
         plot_si(axB0, baz_an, si_an, "Analytical", "black", lw=2, ls="--", zorder=5)
@@ -378,31 +382,36 @@ def main():
     bR1B, sR1B = load_ray(bench_out, "bench_1L_B", sp_src_ids, src_baz)
     plot_si(axB0, bR1B, sR1B, "Ray SP→SI", "red", lw=2, marker='o', zorder=4)
 
+    # HFFK T=4s 當 ray-theory 極限基準（慣例與 HFFK 一致）
+    bRef, sRef = load_hffk(bench_out, "bench_1L_B", 4., si_src_ids, src_baz)
     for T, col in zip(PERIODS, T_COLORS):
         bH, sH = load_hffk(bench_out, "bench_1L_B", T, si_src_ids, src_baz)
         plot_si(axB0, bH, sH, f"HFFK T={int(T)}s", col)
-        if bR1B is not None:
-            plot_residual(axB1, bR1B, sR1B, bH, sH, f"T={int(T)}s", col)
+        if bRef is not None:
+            plot_residual(axB1, bRef, sRef, bH, sH, f"T={int(T)}s", col)
 
     # ════════════════════════════════════════════════════════════
     # Col C — Two layers 2L_B: analytical(T=8s) + ray + HFFK T=4/8/25/50
     # ════════════════════════════════════════════════════════════
     axC0, axC1 = axes[0, 2], axes[1, 2]
-    axC0.set_title("C — Two layers (2L_B)\nanalytical(T=8s) + ray + HFFK T=4–50 s", fontsize=10)
-    axC1.set_title("C — HFFK(T) - Ray  (2L: SI additive, ~T-indep)", fontsize=9)
+    axC0.set_title("C — Two layers (2L_B)\nSilver-Savage(ref) + HFFK T=4–50 s", fontsize=10)
+    axC1.set_title("C — HFFK(T) - HFFK(4s)  (2L SI additive: ~0)", fontsize=9)
 
+    # Silver-Savage 視分裂 SI（波形干涉，僅參考——SI 觀測量不含干涉，不應重合）
     baz_an2, si_an2 = load_analytical(csv_path, "SI_2L_B_T8s")
     if baz_an2 is not None:
-        plot_si(axC0, baz_an2, si_an2, "Analytical T=8s", "black", lw=2, ls="--", zorder=5)
+        plot_si(axC0, baz_an2, si_an2, "Silver-Savage T=8s (ref)",
+                "black", lw=2, ls="--", zorder=5)
 
     bR2B, sR2B = load_ray(bench_out, "bench_2L_B", sp_src_ids, src_baz)
     plot_si(axC0, bR2B, sR2B, "Ray SP→SI", "red", lw=2, marker='o', zorder=4)
 
+    bRef2, sRef2 = load_hffk(bench_out, "bench_2L_B", 4., si_src_ids, src_baz)
     for T, col in zip(PERIODS, T_COLORS):
         bH, sH = load_hffk(bench_out, "bench_2L_B", T, si_src_ids, src_baz)
         plot_si(axC0, bH, sH, f"HFFK T={int(T)}s", col)
-        if bR2B is not None:
-            plot_residual(axC1, bR2B, sR2B, bH, sH, f"T={int(T)}s", col)
+        if bRef2 is not None:
+            plot_residual(axC1, bRef2, sRef2, bH, sH, f"T={int(T)}s", col)
 
     # ════════════════════════════════════════════════════════════
     # Col D — lateral_B: ray + HFFK T=4/8/16/25/50s (MAIN period plot)
@@ -413,18 +422,20 @@ def main():
         fontsize=10
     )
     axD1.set_title(
-        "D — HFFK(T) - Ray\n(T=50s largest -> Fresnel averages both sides)", fontsize=9
+        "D — HFFK(T) - HFFK(4s)\n(T up -> Fresnel averages both sides)", fontsize=9
     )
 
     bRLB, sRLB = load_ray(bench_out, "bench_lateral_B", sp_src_ids, src_baz)
     plot_si(axD0, bRLB, sRLB, "Ray SP→SI", "red", lw=2, marker='o', zorder=4)
 
+    # HFFK T=4s = 最小 Fresnel zone ≈ ray-theory 極限，當殘差基準
+    bRefL, sRefL = load_hffk(bench_out, "bench_lateral_B", 4., si_src_ids, src_baz)
     for T, col in zip(PERIODS_ALL, T_ALL_COLORS):
         bH, sH = load_hffk(bench_out, "bench_lateral_B", T, si_src_ids, src_baz)
         lw = 2.0 if T in [4., 50.] else 1.0
         plot_si(axD0, bH, sH, f"HFFK T={int(T)}s", col, lw=lw)
-        if bRLB is not None:
-            plot_residual(axD1, bRLB, sRLB, bH, sH, f"T={int(T)}s", col)
+        if bRefL is not None:
+            plot_residual(axD1, bRefL, sRefL, bH, sH, f"T={int(T)}s", col)
 
     # ── 軸格式統一（y 軸依實際資料自動縮放）──────────────────────
     for col_idx, (ax0, ax1) in enumerate(zip(axes[0], axes[1])):
@@ -448,10 +459,10 @@ def main():
     print(f"Saved: {fig_path}")
     plt.close()
 
-    # ── 第二張圖：r vs period（所有模型）─────────────────────────
+    # ── 第二張圖：r vs period（HFFK(T) 與 HFFK(4s) ray 極限的相關）───
     fig2, ax = plt.subplots(figsize=(9, 5))
-    ax.set_title("r vs Period — Pearson r of each method vs Ray\n"
-                 "(lateral_B: lowest at T=50s)", fontsize=11)
+    ax.set_title("r vs Period — corr( HFFK(T), HFFK(4s ray-limit) )\n"
+                 "uniform: ~1 all T;  lateral: drops as T grows", fontsize=11)
 
     models_r = {
         "1L_B":      ("bench_1L_B",      "tab:blue",   "o-"),
@@ -462,7 +473,7 @@ def main():
 
     for label, (mod, color, style) in models_r.items():
         r_vals = []
-        bR, sR = load_ray(bench_out, mod, sp_src_ids, src_baz)
+        bR, sR = load_hffk(bench_out, mod, 4., si_src_ids, src_baz)   # ray 極限 = HFFK 4s
         if bR is None or len(bR) == 0:
             continue
         for T in PERIODS_ALL:
@@ -480,7 +491,7 @@ def main():
         ax.plot(PERIODS_ALL, r_vals, style, color=color, lw=2, ms=8, label=label)
 
     ax.set_xlabel("Period T (s)", fontsize=11)
-    ax.set_ylabel("r  (HFFK vs Ray SP→SI)", fontsize=11)
+    ax.set_ylabel("r  ( HFFK(T) vs HFFK 4s )", fontsize=11)
     ax.set_xscale("log")
     ax.set_xlim(3, 60)
     ax.set_ylim(0, 1.05)

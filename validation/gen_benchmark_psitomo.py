@@ -190,8 +190,13 @@ SI_HALF = 0.5
 
 
 def si_1layer(phi_deg, dt_s, baz_arr):
-    """單層解析 SI = 0.5·δt·sin(2(φ−BAZ))（Chevrot 慣例）"""
-    return SI_HALF * dt_s * np.sin(2 * (np.radians(phi_deg) - np.radians(baz_arr)))
+    """單層解析 SI = 0.5·δt·sin(2(BAZ−φ))（PSI_D SI 慣例）
+
+    PSI_D 的 SI kernel ζ 對水平快軸+向下傳播化簡成 (BAZ−φ)（見
+    symmetry_axis_cosine, psi_forward.jl:948），符號與教科書 (φ−BAZ) 相反。
+    用 (BAZ−φ) 才能和 PSI_D 的 HFFK SI 輸出重合（由 HFFK 1L 峰在 BAZ≈90 反推）。
+    """
+    return SI_HALF * dt_s * np.sin(2 * (np.radians(baz_arr) - np.radians(phi_deg)))
 
 
 def si_2layer(phi1_deg, dt1_s, phi2_deg, dt2_s, baz_arr, period_s=8.0):
@@ -223,8 +228,9 @@ def si_2layer(phi1_deg, dt1_s, phi2_deg, dt2_s, baz_arr, period_s=8.0):
 
     # 注意：此為「視分裂參數」代入 SI 公式（Silver-Savage 波形干涉）。
     # PSI_D 的 SI 觀測量對多層是「可加」的（不含干涉），兩者本質不同——
-    # 此曲線僅作參考，不應期待與 HFFK 2L 重疊。0.5 對齊 Chevrot 慣例。
-    return SI_HALF * dt_app * np.sin(2 * (ph_app - baz))
+    # 此曲線僅作參考，不應期待與 HFFK 2L 重疊。
+    # 0.5 對齊 Chevrot；(baz−ph) 對齊 PSI_D SI 符號慣例（見 si_1layer）。
+    return SI_HALF * dt_app * np.sin(2 * (baz - ph_app))
 
 
 # ══════════════════════════════════════════════════════════════════
