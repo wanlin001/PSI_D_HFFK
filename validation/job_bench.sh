@@ -1,25 +1,24 @@
 #!/bin/bash
-# job_bench.sh — PSI_D 全套 benchmark（4 模型 × ray SP + HFFK SI T=4-50s）
+# job_bench.sh — PSI_D 全套 benchmark
+#   4 均勻模型 (1L/2L × coarse/fine) × ray SP + HFFK SI T=4-50s
+#   2 橫向模型 (lateral_B/C)         × ray SP + HFFK SI T=4-50s
 #
-# 前置：
-#   git pull && python3 validation/gen_benchmark_psitomo.py
+# 提交（必須從 /lfs 下的目錄提交）：
+#   mkdir -p /lfs/wl/bench_psi
+#   cd /lfs/wl/bench_psi
+#   sbatch /home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK/validation/job_bench.sh
 #
-# 提交（直接在 software 目錄提交，不需要 project 目錄）：
-#   cd /home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK
-#   sbatch validation/job_bench.sh
-#
-# 輸出全部在：
-#   /home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK/validation/bench_output/
+# 輸出在：/lfs/wl/bench_psi/bench_output/
 #
 #SBATCH -J psi_bench
 #SBATCH -p 8358
 #SBATCH -N 1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=32G
-#SBATCH --time=48:00:00
-#SBATCH -o validation/bench_%j.out
-#SBATCH -e validation/bench_%j.err
+#SBATCH --mem=48G
+#SBATCH --time=72:00:00
+#SBATCH -o bench_%j.out
+#SBATCH -e bench_%j.err
 
 set -e
 
@@ -27,17 +26,23 @@ PSI_DIR=/home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK
 JULIA=/home/wl/software/julia-1.10.0/bin/julia
 TEMPLATE="${PSI_DIR}/psi_input/psi_config_template_v2.toml"
 SRC="${PSI_DIR}/psi_input/Sources_uniform48.dat"
-OBS_SP="${PSI_DIR}/psi_input/DUMMY_SP_uniform48.dat"   # SplittingParameters, period=8s
-OBS_SI="${PSI_DIR}/psi_input/DUMMY_SI_uniform48.dat"   # SplittingIntensity,  period=0 (from toml)
+OBS_SP="${PSI_DIR}/psi_input/DUMMY_SP_uniform48.dat"
+OBS_SI="${PSI_DIR}/psi_input/DUMMY_SI_uniform48.dat"
 BENCH_DIR="${PSI_DIR}/validation/bench_models"
-OUT_BASE="${PSI_DIR}/validation/bench_output"
+OUT_BASE="${SLURM_SUBMIT_DIR}/bench_output"   # /lfs/wl/bench_psi/bench_output
+
 PERIODS=(4.0 8.0 16.0 20.0 25.0 33.0 50.0)
-MODELS=(bench_1L_A bench_1L_B bench_2L_A bench_2L_B)
+
+# 均勻模型（1L/2L × A/B）
+UNIFORM_MODELS=(bench_1L_A bench_1L_B bench_2L_A bench_2L_B)
+
+# 橫向非均勻模型（HFFK period 差異診斷）
+LATERAL_MODELS=(bench_lateral_B bench_lateral_C)
+
+MIN_LINES=25201   # 48 sources × 525 receivers + 1
 export JULIA_COPY_STACKS=1
 
-# 48 sources × 525 receivers + 1 header
-MIN_LINES=25201
-
+# ── 函式 ─────────────────────────────────────────────────────────
 run_psi() {
     local TAG="$1" MODEL_FILE="$2" OBS="$3" OBS_TYPE="$4" PERIOD="$5" HFFK_SP="$6"
     local OUTDIR="${OUT_BASE}/${TAG}"
@@ -72,29 +77,39 @@ run_psi() {
     echo "===== ${TAG} done ====="
 }
 
-mkdir -p "${OUT_BASE}"
-
-echo "===== Benchmark start $(date) ====="
-echo "PSI_DIR: ${PSI_DIR}"
-echo "Models:  ${BENCH_DIR}"
-echo "Output:  ${OUT_BASE}"
-
-for MOD in "${MODELS[@]}"; do
-    MODEL_FILE="${BENCH_DIR}/${MOD}.dat"
-    if [ ! -f "${MODEL_FILE}" ]; then
-        echo "[WARN] ${MODEL_FILE} not found — skipping ${MOD}"; continue
-    fi
-
-    # Ray SP (high-freq approx, tf_hffk_sp=false, period=8s in DUMMY_SP)
-    run_psi "bench_${MOD}_ray" "${MODEL_FILE}" \
+run_all_periods() {
+    local MOD="$1" MODEL_FILE="$2"
+    # Ray SP (high-freq approx)
+    run_psi "${MOD}_ray" "${MODEL_FILE}" \
             "${OBS_SP}" "SplittingParameters" "8.0" "tf_hffk_sp = false"
-
     # HFFK SI 各頻率
     for T in "${PERIODS[@]}"; do
-        TT="${T%.*}s"
-        run_psi "bench_${MOD}_hffk_T${TT}" "${MODEL_FILE}" \
+        run_psi "${MOD}_hffk_T${T%.*}s" "${MODEL_FILE}" \
                 "${OBS_SI}" "SplittingIntensity" "${T}" ""
     done
+}
+
+# ── 主程式 ──────────────────────────────────────────────────────
+mkdir -p "${OUT_BASE}"
+echo "===== Benchmark start $(date) ====="
+echo "PSI_DIR : ${PSI_DIR}"
+echo "Models  : ${BENCH_DIR}"
+echo "Output  : ${OUT_BASE}"
+
+echo ""
+echo "--- 均勻模型（resolution + 雙層干涉）---"
+for MOD in "${UNIFORM_MODELS[@]}"; do
+    MODEL_FILE="${BENCH_DIR}/${MOD}.dat"
+    [ -f "${MODEL_FILE}" ] || { echo "[WARN] ${MODEL_FILE} not found"; continue; }
+    run_all_periods "${MOD}" "${MODEL_FILE}"
+done
+
+echo ""
+echo "--- 橫向模型（HFFK period 差異診斷）---"
+for MOD in "${LATERAL_MODELS[@]}"; do
+    MODEL_FILE="${BENCH_DIR}/${MOD}.dat"
+    [ -f "${MODEL_FILE}" ] || { echo "[WARN] ${MODEL_FILE} not found"; continue; }
+    run_all_periods "${MOD}" "${MODEL_FILE}"
 done
 
 echo ""; echo "===== All benchmark done $(date) ====="

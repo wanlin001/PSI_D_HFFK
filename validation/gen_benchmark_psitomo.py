@@ -2,25 +2,34 @@
 """
 gen_benchmark_psitomo.py — PSI_D benchmark 合成各向異性模型生成器
 
-輸出 4 個 psitomo 檔 + 1 個解析解 CSV：
-  bench_models/bench_1L_A.dat  — 單層，粗網格 5×5×11, dep 60–360 km
-  bench_models/bench_1L_B.dat  — 單層，細網格 9×9×21, dep 30–630 km
-  bench_models/bench_2L_A.dat  — 雙層，粗網格 5×5×11, dep 60–360 km
-  bench_models/bench_2L_B.dat  — 雙層，細網格 9×9×21, dep 30–630 km
-  bench_models/analytical_si.csv
+輸出 6 個 psitomo 檔 + 1 個解析解 CSV：
+  bench_1L_A.dat    — 單層均勻，粗 5×5×11, dep 60-360 km
+  bench_1L_B.dat    — 單層均勻，細 9×9×21, dep 30-630 km   (resolution test)
+  bench_2L_A.dat    — 雙層均勻，粗 5×5×11
+  bench_2L_B.dat    — 雙層均勻，細 9×9×21                  (two-layer interference)
+  bench_lateral_B.dat — 橫向邊界，細 9×9×21                (HFFK period 差異最明顯)
+  bench_lateral_B_fine.dat — 橫向邊界，超細 17×17×21       (確認 resolution 無影響)
+  analytical_si.csv
 
-異向性設計（均一 δVs = 0.101 km/s = 2.25% of Vs0）：
-  單層: φ = 45°（NE 方向），整個深度範圍
-  雙層: 上半層 φ₁ = 0°（N），下半層 φ₂ = 45°（NE）— 差 45°，有 BAZ 依賴性
+橫向模型 (bench_lateral_B)：
+  左半邊 (lon < 123°E): φ_L=0°  (North)
+  右半邊 (lon ≥ 123°E): φ_R=90° (East)
+  接收站在中心 (123°E, 24°N) — 正好在邊界上
+
+  HFFK period 效應機制：
+    Fresnel zone 半徑 R_F ≈ √(Vs·T·(L-z)·z/L)
+    T=4s,  dep=330km: R_F ≈ √(4.5×4×330×300/630) ≈  90 km  → 接近 ray theory
+    T=50s, dep=330km: R_F ≈ √(4.5×50×330×300/630) ≈ 333 km → 左右兩側都在 zone 內
+  → T 越大，φ_eff 越往 45° 靠（兩側平均）
 
 用法：
-  cd /Users/wanlin/Documents/ASPECT/PSI_D_HFFK
   python3 validation/gen_benchmark_psitomo.py
 
 wl 上：
   cd /home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK
   git pull && python3 validation/gen_benchmark_psitomo.py
-  sbatch validation/job_bench.sh   # 直接在 PSI_DIR 提交，輸出在 validation/bench_output/
+  mkdir -p /lfs/wl/bench_psi && cd /lfs/wl/bench_psi
+  sbatch /home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK/validation/job_bench.sh
 """
 
 import numpy as np
@@ -36,6 +45,9 @@ DVS = 0.101  # km/s — 各向異性大小 (δVs/Vs0 ≈ 2.25%)
 PHI_1L       = 45.0   # 單層
 PHI_2L_UPPER = 0.0    # 雙層上半層 (North)
 PHI_2L_LOWER = 45.0   # 雙層下半層 (NE)   — 差 45°，不互相抵消
+PHI_LAT_L    = 0.0    # 橫向左半 (North)
+PHI_LAT_R    = 90.0   # 橫向右半 (East)   — 互相垂直，Fresnel zone 效應最明顯
+LON_BOUNDARY = 123.0  # 橫向邊界經度
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -104,6 +116,34 @@ def delta_t_km(thick_km: float, dVs: float = DVS) -> float:
 # ══════════════════════════════════════════════════════════════════
 # psitomo 格式輸出
 # ══════════════════════════════════════════════════════════════════
+
+def write_psitomo_3d(out_path, lon_arr, lat_arr, dep_arr, cij_func3d):
+    """
+    cij_func3d(lon, lat, dep) → ndarray(22) [C11..C66, rho]
+    用於橫向非均勻模型。
+    """
+    nlon, nlat, ndep = len(lon_arr), len(lat_arr), len(dep_arr)
+    dlon = float(lon_arr[1] - lon_arr[0]) if nlon > 1 else 1.0
+    dlat = float(lat_arr[1] - lat_arr[0]) if nlat > 1 else 1.0
+    ddep = float(dep_arr[1] - dep_arr[0]) if ndep > 1 else 1.0
+    clon = float(lon_arr[nlon // 2])
+    clat = float(lat_arr[nlat // 2])
+
+    with open(out_path, 'w') as f:
+        f.write(f"  6370.0000, {clon:9.4f}, {clat:9.4f},   0.0000,\n")
+        f.write(f"    {nlon},    {nlat},    {ndep},\n")
+        f.write(f"  {dlon:.4f},   {dlat:.4f},  {ddep:.4f},\n")
+        f.write("   0,\n")
+        for dep in dep_arr:
+            for lat in lat_arr:
+                for lon in lon_arr:
+                    cij_rho = cij_func3d(float(lon), float(lat), float(dep))
+                    row = np.concatenate([[lon, lat, dep], cij_rho])
+                    f.write(','.join(f' {v:>14.5E}' for v in row) + ',\n')
+
+    sz = Path(out_path).stat().st_size / 1e6
+    print(f"  → {out_path}  ({nlon}×{nlat}×{ndep}={nlon*nlat*ndep:,} pts, {sz:.1f} MB)")
+
 
 def write_psitomo(out_path, lon_arr, lat_arr, dep_arr, cij_func):
     """
@@ -231,6 +271,30 @@ def main():
 
     write_psitomo(out_dir / "bench_2L_A.dat", lon_A, lat_A, dep_A, make_2L(dep_A))
     write_psitomo(out_dir / "bench_2L_B.dat", lon_B, lat_B, dep_B, make_2L(dep_B))
+
+    # ── 橫向非均勻模型（period 效應診斷）────────────────────────
+    # 接收站在邊界 LON_BOUNDARY=123°E
+    # 左半 lon < 123°: φ=0°(N)；右半 lon ≥ 123°: φ=90°(E)
+    # 只用 Grid B（細網格）+ 超細 17×17 做解析度驗證
+    print("\n=== 橫向非均勻模型（HFFK period 效應診斷）===")
+    cij_lat_L = cij_hti(PHI_LAT_L)
+    cij_lat_R = cij_hti(PHI_LAT_R)
+
+    def make_lateral(lon_arr):
+        def f_lat(lon, lat, dep):
+            return cij_lat_L if lon < LON_BOUNDARY else cij_lat_R
+        return f_lat
+
+    # Grid B: 9×9×21 細網格
+    write_psitomo_3d(out_dir / "bench_lateral_B.dat",
+                     lon_B, lat_B, dep_B, make_lateral(lon_B))
+
+    # Grid C: 17×17×21 超細格，間距 0.5°（解析度驗證）
+    lon_C = np.linspace(119., 127., 17)
+    lat_C = np.linspace(20.,  28.,  17)
+    dep_C = dep_B.copy()
+    write_psitomo_3d(out_dir / "bench_lateral_C.dat",
+                     lon_C, lat_C, dep_C, make_lateral(lon_C))
 
     # ── 解析解 CSV ────────────────────────────────────────────────
     print("\n=== 解析解 CSV ===")
