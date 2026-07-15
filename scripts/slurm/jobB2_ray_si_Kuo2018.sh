@@ -20,7 +20,7 @@ PSI_DIR=/home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK
 PROJECT_DIR="${SLURM_SUBMIT_DIR}"
 JULIA=/home/wl/software/julia-1.10.0/bin/julia
 TEMPLATE="${PSI_DIR}/psi_input/psi_config_template_ray_si.toml"
-MODEL_DAT="${PROJECT_DIR}/viztomo_output/psitomo0050_fix2.dat"
+MODEL_DAT="${PROJECT_DIR}/viztomo_output/psitomo0050_filled.dat"
 
 cd "${PROJECT_DIR}"
 

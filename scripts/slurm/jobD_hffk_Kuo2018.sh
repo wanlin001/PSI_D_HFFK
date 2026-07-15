@@ -19,7 +19,7 @@ PSI_DIR=/home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK
 PROJECT_DIR="${SLURM_SUBMIT_DIR}"
 JULIA=/home/wl/software/julia-1.10.0/bin/julia
 TEMPLATE="${PSI_DIR}/psi_input/psi_config_template_v2.toml"
-MODEL_DAT="${PROJECT_DIR}/viztomo_output/psitomo0050_fix2.dat"
+MODEL_DAT="${PROJECT_DIR}/viztomo_output/psitomo0050_filled.dat"
 
 SRC_SKS="${PSI_DIR}/psi_input/Sources_Kuo2018_SKS.dat"
 OBS_SKS="${PSI_DIR}/psi_input/DUMMY_SI_Kuo2018_SKS.dat"

@@ -121,6 +121,7 @@ def gen_psidir_dummies(psi_dir, sp_period=8.0):
         sid96 = list(range(1, count_lines(src96) + 1))
         print(f"  uniform96: {len(sid96)} sources")
         write_dummy_si(indir / "DUMMY_SI_uniform96.dat", sid96, rcv_ids, phase="SKS")
+        write_dummy_sp(indir / "DUMMY_SP_uniform96.dat", sid96, rcv_ids, phase="SKS", period_s=sp_period)
     else:
         print(f"  [SKIP] {src96} not found")
 
