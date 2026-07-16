@@ -19,11 +19,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from plot_convergence_common import convergence_stats
+from plot_convergence_common import convergence_stats, rms_for_log_plot, mark_reference
 
 PERIODS = [4., 8., 16., 20., 25., 33., 50.]
-NRINGS_LIST = [1, 2, 3, 4, 5, 6, 8, 12, 16]
-NAZ_LIST = [4, 6, 8, 12, 16, 24, 32, 48]
+NRINGS_LIST = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24]
+NAZ_LIST = [4, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64]
+REF_RINGS = 16
+REF_AZ = 48
 PSI_DIR_DEFAULT = "/home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK"
 RCV_CENTER_LON, RCV_CENTER_LAT = 123.0, 24.0
 
@@ -202,27 +204,33 @@ def main():
     ax_grid.set_yscale("symlog", linthresh=1e-10)
 
     ax_nr = axes[1, 0]
-    ax_nr.set_title("T2-2 — n_rings (raw SI, ref=16)", fontsize=10)
-    nr_result = convergence_stats(nrings_dir, "lateral_B_hffk_T25s_rings{}", NRINGS_LIST, 16)
+    ax_nr.set_title(f"T2-2 — n_rings (ref={REF_RINGS} ★)", fontsize=10)
+    nr_result = convergence_stats(nrings_dir, "lateral_B_hffk_T25s_rings{}", NRINGS_LIST, REF_RINGS)
     if nr_result:
         _, rms_nr, _, _ = nr_result
-        ax_nr.semilogy(NRINGS_LIST, rms_nr, "ko-", lw=2, ms=8)
+        rms_log = rms_for_log_plot(NRINGS_LIST, rms_nr, REF_RINGS)
+        ax_nr.semilogy(NRINGS_LIST, rms_log, "ko-", lw=2, ms=6)
+        mark_reference(ax_nr, REF_RINGS, REF_RINGS, for_log=True)
+        ax_nr.axvline(3, color="tab:green", ls="--", lw=1, label="preset=3")
         ax_nr.axhline(0.01, color="green", ls="--", lw=1, label="0.01 s")
-        ax_nr.set_xlabel("n_rings"); ax_nr.set_ylabel("RMS vs nr=16 (s)")
-        ax_nr.set_xticks(NRINGS_LIST); ax_nr.legend(fontsize=8); ax_nr.grid(True, alpha=0.3)
+        ax_nr.set_xlabel("n_rings"); ax_nr.set_ylabel("RMS vs ref (s)")
+        ax_nr.set_xticks(NRINGS_LIST); ax_nr.legend(fontsize=7); ax_nr.grid(True, alpha=0.3)
     else:
         ax_nr.text(0.5, 0.5, "n_rings data pending", ha="center", va="center",
                    transform=ax_nr.transAxes)
 
     ax_naz = axes[1, 1]
-    ax_naz.set_title("T2-3 — n_azimuth (raw SI, ref=48)", fontsize=10)
-    az_result = convergence_stats(naz_dir, "lateral_B_hffk_T25s_az{}", NAZ_LIST, 48)
+    ax_naz.set_title(f"T2-3 — n_azimuth (ref={REF_AZ} ★)", fontsize=10)
+    az_result = convergence_stats(naz_dir, "lateral_B_hffk_T25s_az{}", NAZ_LIST, REF_AZ)
     if az_result:
         _, rms_naz, _, _ = az_result
-        ax_naz.semilogy(NAZ_LIST, rms_naz, "bo-", lw=2, ms=8)
+        rms_log = rms_for_log_plot(NAZ_LIST, rms_naz, REF_AZ)
+        ax_naz.semilogy(NAZ_LIST, rms_log, "bo-", lw=2, ms=6)
+        mark_reference(ax_naz, REF_AZ, REF_AZ, for_log=True)
+        ax_naz.axvline(8, color="tab:green", ls="--", lw=1, label="preset=8")
         ax_naz.axhline(0.01, color="green", ls="--", lw=1, label="0.01 s")
-        ax_naz.set_xlabel("n_azimuth"); ax_naz.set_ylabel("RMS vs az=48 (s)")
-        ax_naz.set_xticks(NAZ_LIST); ax_naz.legend(fontsize=8); ax_naz.grid(True, alpha=0.3)
+        ax_naz.set_xlabel("n_azimuth"); ax_naz.set_ylabel("RMS vs ref (s)")
+        ax_naz.set_xticks(NAZ_LIST); ax_naz.legend(fontsize=7); ax_naz.grid(True, alpha=0.3)
     else:
         ax_naz.text(0.5, 0.5, "n_azimuth data pending", ha="center", va="center",
                     transform=ax_naz.transAxes)

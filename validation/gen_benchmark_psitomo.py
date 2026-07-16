@@ -5,7 +5,7 @@ gen_benchmark_psitomo.py — PSI_D benchmark 合成各向異性模型生成器
 輸出 6 個 psitomo 檔 + 1 個解析解 CSV：
   bench_1L_A.dat      — 單層均勻 φ=45°，粗 5×5×13（Col A resolution）
   bench_1L_B.dat      — 單層均勻 φ=45°，細 9×9×21（Col A resolution）
-  bench_1L_lat_B.dat  — 單層橫向邊界 φ_L=0°/φ_R=90°，細 9×9×21（Col B period）
+  bench_1L_lat_B.dat  — 單層橫向邊界 φ_L=0°/φ_R=90°，僅上層 0–300 km（Col B）
   bench_2L_A.dat      — 雙層垂直均勻，粗 5×5×13
   bench_2L_B.dat      — 雙層垂直均勻，細 9×9×21
   bench_2L_lat_B.dat  — 雙層：上層均勻 φ=0°，下層橫向邊界（Col C period）
@@ -375,14 +375,26 @@ def main():
     print("\n=== 單層/雙層橫向模型（Col B/C period 診斷）===")
     cij_lat_L = cij_hti(PHI_LAT_L)
     cij_lat_R = cij_hti(PHI_LAT_R)
+    cij_iso = cij_hti(0.0, dVs=0.0)   # 下層等向性背景
 
     def make_lateral(lon_arr):
         def f_lat(lon, lat, dep):
             return cij_lat_L if lon < LON_BOUNDARY else cij_lat_R
         return f_lat
 
+    # Col B：僅「單層」上地幔（0–300 km）有橫向各向異性；深部等向
+    # （與 Col D bench_lateral_B 全深度 0–600 km 橫向對比）
+    anis_top_km = 300.0
+
+    def make_1L_lat(lon_arr):
+        def f_lat(lon, lat, dep):
+            if dep > anis_top_km:
+                return cij_iso
+            return cij_lat_L if lon < LON_BOUNDARY else cij_lat_R
+        return f_lat
+
     write_psitomo_3d(out_dir / "bench_1L_lat_B.dat",
-                     lon_B, lat_B, dep_B, make_lateral(lon_B))
+                     lon_B, lat_B, dep_B, make_1L_lat(lon_B))
 
     mid_B = (dep_B[0] + dep_B[-1]) / 2.0
 
@@ -396,7 +408,7 @@ def main():
 
     write_psitomo_3d(out_dir / "bench_2L_lat_B.dat",
                      lon_B, lat_B, dep_B, make_2L_lateral(lon_B, dep_B))
-    print(f"  bench_1L_lat_B: 單層橫向 φ_L={PHI_LAT_L}°/φ_R={PHI_LAT_R}° @ {LON_BOUNDARY}°E")
+    print(f"  bench_1L_lat_B: 單層橫向 φ_L={PHI_LAT_L}°/φ_R={PHI_LAT_R}° @ {LON_BOUNDARY}°E（僅 0–{anis_top_km:.0f} km）")
     print(f"  bench_2L_lat_B: 上層 φ={PHI_2L_UPPER}°均勻，下層橫向邊界（dep>{mid_B:.0f} km）")
 
     # ── 橫向非均勻模型（period 效應診斷）────────────────────────

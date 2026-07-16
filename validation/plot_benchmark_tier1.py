@@ -3,7 +3,7 @@
 plot_benchmark_tier1.py — Tier 1 單元正確性圖（獨立輸出）
 
 Col A: 格網解析度（1L_A vs 1L_B，均勻場）
-Col B: 單層橫向邊界（bench_1L_lat_B）— Ray SI + HFFK T=4–50s
+Col B: 上層 0–300 km 橫向各向異性（bench_1L_lat_B）
 Col C: 雙層下層橫向邊界（bench_2L_lat_B）— Ray SI + HFFK T=4–50s
 Col D: 全深度橫向邊界（bench_lateral_B）— Ray SI + HFFK T=4–50s
 
@@ -185,9 +185,9 @@ def main():
 
     # Col B/C/D — period-sensitive lateral models
     panels = [
-        (1, "bench_1L_lat_B", "B — Single-layer lateral\nφ_L=0°/φ_R=90° @ 123°E"),
+        (1, "bench_1L_lat_B", "B — Upper 300 km lateral\nφ_L=0°/φ_R=90° @ 123°E"),
         (2, "bench_2L_lat_B", "C — Two-layer: upper uniform φ=0°\nlower layer lateral boundary"),
-        (3, "bench_lateral_B", "D — Full-depth lateral\nφ_L=0°/φ_R=90° @ 123°E"),
+        (3, "bench_lateral_B", "D — Full-depth 0–600 km lateral\nφ_L=0°/φ_R=90° @ 123°E"),
     ]
 
     for col, model, title in panels:

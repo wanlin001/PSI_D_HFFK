@@ -1,12 +1,6 @@
 #!/usr/bin/env python3
 """
 plot_nazimuth_convergence.py — HFFK n_azimuth 收斂圖 (T2-3)
-
-重點：RMS 主圖 + monotonic envelope，避免 6→8 非單調造成「沒收斂」錯覺。
-
-用法：
-    python3 validation/plot_nazimuth_convergence.py \
-        --conv-dir /lfs/wl/bench_psi/bench_output/nazimuth_conv
 """
 
 import argparse
@@ -19,9 +13,12 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from plot_convergence_common import convergence_stats
+from plot_convergence_common import (
+    convergence_stats,
+    plot_rms_convergence_axes,
+)
 
-NAZ_LIST = [4, 6, 8, 12, 16, 24, 32, 48]
+NAZ_LIST = [4, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64]
 PATTERN = "lateral_B_hffk_T25s_az{}"
 
 
@@ -51,39 +48,42 @@ def main():
         fontsize=11, fontweight="bold",
     )
 
-    # 左：全範圍 semilogy + monotonic envelope
+    # 左：log + monotonic envelope
+    from plot_convergence_common import rms_for_log_plot, mark_reference, RMS_FLOOR
+    rms_log = rms_for_log_plot(naz_list, rms_vals, args.ref_az)
+    mono_log = [m if not np.isinf(m) and m > 0 else RMS_FLOOR for m in mono]
     ax = axes[0]
-    ax.semilogy(naz_list, rms_vals, "o-", color="tab:blue", lw=2, ms=9,
-                label="RMS per n_azimuth", zorder=3)
-    ax.semilogy(naz_list, mono, "s--", color="tab:green", lw=1.5, ms=6,
-                label="monotonic best-so-far", zorder=2)
-    ax.axhline(0.01, color="red", ls=":", lw=1.2, label="pass: 0.01 s")
-    for x, y in zip(naz_list, rms_vals):
-        if not np.isnan(y):
-            ax.annotate(f"{y:.4f}", (x, y), textcoords="offset points",
-                        xytext=(0, 8), ha="center", fontsize=7)
+    ax.semilogy(naz_list, rms_log, "o-", color="tab:blue", lw=2, ms=8, label="RMS", zorder=3)
+    ax.semilogy(naz_list, mono_log, "s--", color="tab:green", lw=1.5, ms=6,
+                label="best-so-far", zorder=2)
+    mark_reference(ax, args.ref_az, args.ref_az, for_log=True)
+    ax.axhline(0.01, color="red", ls=":", lw=1.2, label="pass 0.01 s")
+    ax.axvline(8, color="tab:green", ls="--", lw=1.2, label="preset=8")
     ax.set_xlabel("n_azimuth")
-    ax.set_ylabel("RMS diff vs ref (s)")
+    ax.set_ylabel("RMS vs ref (s)")
     ax.set_xticks(naz_list)
-    ax.legend(fontsize=8, loc="upper right")
+    ax.legend(fontsize=7)
     ax.grid(True, alpha=0.3, which="both")
+    ax.set_title("Log y + monotonic envelope", fontsize=10)
 
-    # 右：az>=6 線性尺度放大（看 6→48 收斂斜率）
+    # 右：linear
     ax2 = axes[1]
-    mask = [n >= 6 for n in naz_list]
-    x6 = [n for n, m in zip(naz_list, mask) if m]
-    r6 = [r for r, m in zip(rms_vals, mask) if m and not np.isnan(r)]
-    m6 = [m for m, mm in zip(mono, mask) if mm and not np.isnan(m)]
-    ax2.plot(x6, r6, "o-", color="tab:blue", lw=2, ms=9, label="RMS")
-    ax2.plot(x6, m6, "s--", color="tab:green", lw=1.5, ms=6, label="best-so-far")
-    ax2.axhline(0.01, color="red", ls=":", lw=1.2, label="0.01 s")
-    ax2.axhline(0.001, color="orange", ls=":", lw=1.0, label="0.001 s")
-    ax2.set_xlabel("n_azimuth (≥6)")
-    ax2.set_ylabel("RMS diff vs ref (s)")
-    ax2.set_xticks(x6)
-    ax2.legend(fontsize=8)
+    valid = [(n, r) for n, r in zip(naz_list, rms_vals) if not np.isnan(r)]
+    xs = [n for n, _ in valid]
+    ys = [r for _, r in valid]
+    ax2.plot(xs, ys, "o-", color="tab:blue", lw=2, ms=8)
+    mark_reference(ax2, args.ref_az, args.ref_az, for_log=False)
+    ax2.axhline(0.01, color="red", ls=":", lw=1.2)
+    ax2.axvline(8, color="tab:green", ls="--", lw=1.2, label="preset=8")
+    for x, y in zip(xs, ys):
+        ax2.annotate(f"{y:.4f}", (x, y), textcoords="offset points",
+                     xytext=(0, 6), ha="center", fontsize=6)
+    ax2.set_xlabel("n_azimuth")
+    ax2.set_ylabel("RMS vs ref (s)")
+    ax2.set_xticks(xs)
+    ax2.legend(fontsize=7)
     ax2.grid(True, alpha=0.3)
-    ax2.set_title("Zoom: az ≥ 6 (linear y)", fontsize=10)
+    ax2.set_title("Linear y — ref ★ at y=0", fontsize=10)
 
     fig.savefig(str(out) + ".png", dpi=150)
     print(f"Saved: {out}.png")
@@ -91,8 +91,8 @@ def main():
     print("\n=== n_azimuth convergence (raw SI) ===")
     print(f"{'n_az':>8} {'RMS(s)':>10} {'mono':>10} {'corr':>8}")
     for naz, r, m, c in zip(naz_list, rms_vals, mono, corrs):
-        print(f"{naz:>8} {r:>10.6f} {m:>10.6f} {c:>8.5f}")
-    print(f"\nPreset n_azimuth=8: RMS={rms_vals[2]:.6f} s  (pass < 0.01 s)")
+        tag = "  ← ref" if naz == args.ref_az else ""
+        print(f"{naz:>8} {r:>10.6f} {m:>10.6f} {c:>8.5f}{tag}")
 
 
 if __name__ == "__main__":
