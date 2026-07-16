@@ -74,7 +74,7 @@ run_psi() {
         -e "s|__SOURCES_DAT__|${SRC}|g" \
         -e "s|__RECEIVERS_DAT__|${BENCH_INP}/Receivers.dat|g" \
         -e "s|__REFMODEL__|${REFMODEL}|g" \
-        -e "s|__DEPTH_REVERSE__|dims3|g" \
+        -e "s|__DEPTH_REVERSE__|linear|g" \
         "${TEMPLATE}" > "${TMPDIR}/psi_config.toml"
 
     sed -i "s|^receiver_data.*|receiver_data = \"${BENCH_INP}/Receivers.dat\"|g" \
@@ -104,7 +104,7 @@ run_ray_si() {
         -e "s|__SOURCES_DAT__|${SRC}|g" \
         -e "s|__RECEIVERS_DAT__|${BENCH_INP}/Receivers.dat|g" \
         -e "s|__REFMODEL__|${REFMODEL}|g" \
-        -e "s|__DEPTH_REVERSE__|dims3|g" \
+        -e "s|__DEPTH_REVERSE__|linear|g" \
         "${RAY_SI_TEMPLATE}" > "${TMPDIR}/psi_config.toml"
 
     sed -i "s|^receiver_data.*|receiver_data = \"${BENCH_INP}/Receivers.dat\"|g" \

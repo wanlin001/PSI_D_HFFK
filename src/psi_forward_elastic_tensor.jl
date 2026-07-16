@@ -63,8 +63,8 @@ end
 function read_model_parameters(io, parameterisation::Type{ElasticVoigt}, Mesh; dlm = ",", T = Float64,
     tf_global_cartesian = true, depth_reverse::String = "linear")
     # depth_reverse:
-    #   "linear" — 官方 PSI_D / VIZTOMO psitomo：線性索引反轉（逐行讀入順序 ↔ mesh）
-    #   "dims3"  — 合成 benchmark（gen_benchmark_psitomo）：只反轉第 3 維（深度軸）
+    #   "linear" — 官方 PSI_D；VIZTOMO 與 gen_benchmark_psitomo 相同寫檔順序（深度外層遞減）
+    #   "dims3"  — 已廢棄（fork 早期誤用；非均勻場會錯置 Cij，勿用）
     # Note! There is currently a mix of psitomo models in local vs global coordinates
     tf_global_cartesian ? println("Reading Global Cartesian Tensors!") : println("Reading Local Cartesian Tensors!")
     # Read header information 
