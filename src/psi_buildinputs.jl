@@ -296,7 +296,9 @@ function load_model(::Type{PsiModel}, D::Dict)
         parameterisation = eval(Symbol(D["parameterisation"]))
         # Read the model and mesh
         tf_global_cartesian = get(D, "tf_global_cartesian", true)
-        Parameters, Mesh = read_model(coords, mesh_type, parameterisation, theModel; tf_global_cartesian = tf_global_cartesian)
+        depth_reverse = get(D, "depth_reverse", "linear")
+        Parameters, Mesh = read_model(coords, mesh_type, parameterisation, theModel;
+            tf_global_cartesian = tf_global_cartesian, depth_reverse = depth_reverse)
     else
         error("Loading model files of type "*ftype[end]*" is not supported.")
     end
@@ -312,7 +314,8 @@ function load_model(::Type{PsiModel}, D::Dict)
 end
 
 # Loads a model dat-file defined in a LocalGeographic coordinate system, on a regular grid, with HexagonalVelocity parameters
-function read_model(::Type{LocalGeographic}, ::Type{RegularGrid}, parameterisation, f; dlm = ",", T = Float64, tf_global_cartesian = true)
+function read_model(::Type{LocalGeographic}, ::Type{RegularGrid}, parameterisation, f; dlm = ",", T = Float64,
+    tf_global_cartesian = true, depth_reverse::String = "linear")
     io = open(f)
     # Read header line that defines coordinate system
     line = readline(io)
@@ -338,7 +341,8 @@ function read_model(::Type{LocalGeographic}, ::Type{RegularGrid}, parameterisati
     x₃ = range(start = dz_ext, stop = -Δx[3] + dz_ext, length = nx[3]) # Reversed! Depth vector include vertical extension
     Mesh = RegularGrid(Geometry, (x₁, x₂, x₃))
     # Read in model parameters. This will close the file.
-    Parameters = read_model_parameters(io, parameterisation, Mesh; dlm = dlm, T = T, tf_global_cartesian = tf_global_cartesian)
+    Parameters = read_model_parameters(io, parameterisation, Mesh; dlm = dlm, T = T,
+        tf_global_cartesian = tf_global_cartesian, depth_reverse = depth_reverse)
 
     return Parameters, Mesh
 end

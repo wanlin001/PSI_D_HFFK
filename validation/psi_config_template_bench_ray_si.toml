@@ -1,0 +1,30 @@
+# PSI_D config template — benchmark Ray SI (infinite-frequency limit)
+# TauP ray path + SI kernel integration along geometric ray (no Fresnel zone).
+# 由 job_bench.sh 的 run_ray_si() 用 sed 填入 placeholder。
+
+[Output]
+output_directory = "__OUTPUT_DIR__"
+tf_time_stamp = false
+
+[Observations.SplittingIntensity.ShearWave]
+filename = "__OBS_FILE__"
+
+[Model]
+parameterisation = "ElasticVoigt"
+tf_global_cartesian = false
+depth_reverse = "__DEPTH_REVERSE__"
+theModel = "__MODEL_DAT__"
+
+[Model.CoordinateSystem]
+type = "LocalGeographic"
+
+[Model.Mesh]
+type = "RegularGrid"
+
+[Model.Aquisition]
+source_data   = "__SOURCES_DAT__"
+receiver_data = "__RECEIVERS_DAT__"
+
+[Model.Methods.TauP]
+reference_model = "__REFMODEL__"
+DL = 10.0

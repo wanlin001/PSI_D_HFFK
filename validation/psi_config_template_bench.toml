@@ -26,6 +26,7 @@ __HFFK_SP__
 [Model]
 parameterisation = "ElasticVoigt"
 tf_global_cartesian = false
+depth_reverse = "__DEPTH_REVERSE__"
 theModel = "__MODEL_DAT__"
 
 [Model.CoordinateSystem]

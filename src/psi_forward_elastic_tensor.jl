@@ -61,7 +61,10 @@ function ElasticVoigt(Parameters::HexagonalVectoralVelocity)
 end
 
 function read_model_parameters(io, parameterisation::Type{ElasticVoigt}, Mesh; dlm = ",", T = Float64,
-    tf_global_cartesian = true)
+    tf_global_cartesian = true, depth_reverse::String = "linear")
+    # depth_reverse:
+    #   "linear" — 官方 PSI_D / VIZTOMO psitomo：線性索引反轉（逐行讀入順序 ↔ mesh）
+    #   "dims3"  — 合成 benchmark（gen_benchmark_psitomo）：只反轉第 3 維（深度軸）
     # Note! There is currently a mix of psitomo models in local vs global coordinates
     tf_global_cartesian ? println("Reading Global Cartesian Tensors!") : println("Reading Local Cartesian Tensors!")
     # Read header information 
@@ -125,8 +128,48 @@ function read_model_parameters(io, parameterisation::Type{ElasticVoigt}, Mesh; d
 
     # VIZTOMO elastic models are ordered by decreasing depth
     # PSI_D models are ordered by increasing depth
-    if x3_last[1] == Mesh.x[3][1]
-        println("Reversing 3rd dimension!")
+    should_reverse = if depth_reverse == "linear"
+        true
+    elseif depth_reverse == "dims3"
+        x3_last[1] == Mesh.x[3][1]
+    else
+        error("Unknown depth_reverse = \"$depth_reverse\" (use \"linear\" or \"dims3\")")
+    end
+    if should_reverse
+        println("Reversing depth (depth_reverse=$depth_reverse)")
+        _reverse_elasticvoigt_depth!(Parameters, tf_density_normalized; mode = depth_reverse)
+    end
+
+    return Parameters
+end
+
+
+"""Reverse ElasticVoigt depth ordering after reading psitomo."""
+function _reverse_elasticvoigt_depth!(Parameters::ElasticVoigt, tf_density_normalized::Bool; mode::String)
+    if mode == "linear"
+        reverse!(Parameters.c11)
+        reverse!(Parameters.c12)
+        reverse!(Parameters.c13)
+        reverse!(Parameters.c14)
+        reverse!(Parameters.c15)
+        reverse!(Parameters.c16)
+        reverse!(Parameters.c22)
+        reverse!(Parameters.c23)
+        reverse!(Parameters.c24)
+        reverse!(Parameters.c25)
+        reverse!(Parameters.c26)
+        reverse!(Parameters.c33)
+        reverse!(Parameters.c34)
+        reverse!(Parameters.c35)
+        reverse!(Parameters.c36)
+        reverse!(Parameters.c44)
+        reverse!(Parameters.c45)
+        reverse!(Parameters.c46)
+        reverse!(Parameters.c55)
+        reverse!(Parameters.c56)
+        reverse!(Parameters.c66)
+        tf_density_normalized ? nothing : reverse!(Parameters.ρ)
+    elseif mode == "dims3"
         reverse!(Parameters.c11, dims = 3)
         reverse!(Parameters.c12, dims = 3)
         reverse!(Parameters.c13, dims = 3)
@@ -149,8 +192,9 @@ function read_model_parameters(io, parameterisation::Type{ElasticVoigt}, Mesh; d
         reverse!(Parameters.c56, dims = 3)
         reverse!(Parameters.c66, dims = 3)
         tf_density_normalized ? nothing : reverse!(Parameters.ρ, dims = 3)
+    else
+        error("Unknown depth reverse mode: $mode")
     end
-
     return Parameters
 end
 

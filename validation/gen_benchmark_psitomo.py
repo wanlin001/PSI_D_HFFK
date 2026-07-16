@@ -3,12 +3,15 @@
 gen_benchmark_psitomo.py — PSI_D benchmark 合成各向異性模型生成器
 
 輸出 6 個 psitomo 檔 + 1 個解析解 CSV：
-  bench_1L_A.dat    — 單層均勻，粗 5×5×11, 119-127°E 20-28°N dep 60-360 km (2°spacing)
-  bench_1L_B.dat    — 單層均勻，細 9×9×21, 119-127°E 20-28°N dep 30-630 km (1°spacing)
-  bench_2L_A.dat    — 雙層均勻，粗 5×5×11 (同 A)
-  bench_2L_B.dat    — 雙層均勻，細 9×9×21 (同 B)           (two-layer interference)
-  bench_lateral_B.dat — 橫向邊界，細 9×9×21                (HFFK period 差異最明顯)
-  bench_lateral_B_fine.dat — 橫向邊界，超細 17×17×21       (確認 resolution 無影響)
+  bench_1L_A.dat      — 單層均勻 φ=45°，粗 5×5×13（Col A resolution）
+  bench_1L_B.dat      — 單層均勻 φ=45°，細 9×9×21（Col A resolution）
+  bench_1L_lat_B.dat  — 單層橫向邊界 φ_L=0°/φ_R=90°，細 9×9×21（Col B period）
+  bench_2L_A.dat      — 雙層垂直均勻，粗 5×5×13
+  bench_2L_B.dat      — 雙層垂直均勻，細 9×9×21
+  bench_2L_lat_B.dat  — 雙層：上層均勻 φ=0°，下層橫向邊界（Col C period）
+  bench_lateral_B.dat — 橫向邊界，細 9×9×21（Col D period）
+  bench_lateral_C.dat — 橫向邊界，超細 17×17×21（T2-4 格網）
+  bench_lateral_D.dat — 橫向邊界，極細 25×25×21（T2-4 格網延伸）
   analytical_si.csv
 
 橫向模型 (bench_lateral_B)：
@@ -368,11 +371,8 @@ def main():
     write_psitomo(out_dir / "bench_2L_A.dat", lon_A, lat_A, dep_A, make_2L(dep_A))
     write_psitomo(out_dir / "bench_2L_B.dat", lon_B, lat_B, dep_B, make_2L(dep_B))
 
-    # ── 橫向非均勻模型（period 效應診斷）────────────────────────
-    # 接收站在邊界 LON_BOUNDARY=123°E
-    # 左半 lon < 123°: φ=0°(N)；右半 lon ≥ 123°: φ=90°(E)
-    # 只用 Grid B（細網格）+ 超細 17×17 做解析度驗證
-    print("\n=== 橫向非均勻模型（HFFK period 效應診斷）===")
+    # ── Tier 1 Col B/C：含水平 φ 變化，HFFK period 可分辨 ────────
+    print("\n=== 單層/雙層橫向模型（Col B/C period 診斷）===")
     cij_lat_L = cij_hti(PHI_LAT_L)
     cij_lat_R = cij_hti(PHI_LAT_R)
 
@@ -380,6 +380,30 @@ def main():
         def f_lat(lon, lat, dep):
             return cij_lat_L if lon < LON_BOUNDARY else cij_lat_R
         return f_lat
+
+    write_psitomo_3d(out_dir / "bench_1L_lat_B.dat",
+                     lon_B, lat_B, dep_B, make_lateral(lon_B))
+
+    mid_B = (dep_B[0] + dep_B[-1]) / 2.0
+
+    def make_2L_lateral(lon_arr, dep_arr):
+        mid = (dep_arr[0] + dep_arr[-1]) / 2.0
+        def f(lon, lat, dep):
+            if dep <= mid:
+                return cij_upper
+            return cij_lat_L if lon < LON_BOUNDARY else cij_lat_R
+        return f
+
+    write_psitomo_3d(out_dir / "bench_2L_lat_B.dat",
+                     lon_B, lat_B, dep_B, make_2L_lateral(lon_B, dep_B))
+    print(f"  bench_1L_lat_B: 單層橫向 φ_L={PHI_LAT_L}°/φ_R={PHI_LAT_R}° @ {LON_BOUNDARY}°E")
+    print(f"  bench_2L_lat_B: 上層 φ={PHI_2L_UPPER}°均勻，下層橫向邊界（dep>{mid_B:.0f} km）")
+
+    # ── 橫向非均勻模型（period 效應診斷）────────────────────────
+    # 接收站在邊界 LON_BOUNDARY=123°E
+    # 左半 lon < 123°: φ=0°(N)；右半 lon ≥ 123°: φ=90°(E)
+    # 只用 Grid B（細網格）+ 超細 17×17 做解析度驗證
+    print("\n=== 橫向非均勻模型（Col D + Tier 2 格網）===")
 
     # Grid B: 9×9×21 細網格
     write_psitomo_3d(out_dir / "bench_lateral_B.dat",
@@ -391,6 +415,14 @@ def main():
     dep_C = dep_B.copy()
     write_psitomo_3d(out_dir / "bench_lateral_C.dat",
                      lon_C, lat_C, dep_C, make_lateral(lon_C))
+
+    # Grid D: 25×25×21 極細格，間距 ~0.33°（T2-4 延伸）
+    lon_D = np.linspace(119., 127., 25)
+    lat_D = np.linspace(20.,  28.,  25)
+    dep_D = dep_B.copy()
+    write_psitomo_3d(out_dir / "bench_lateral_D.dat",
+                     lon_D, lat_D, dep_D, make_lateral(lon_D))
+    print(f"  bench_lateral_D: 25×25×21 (~0.33°), 同 lateral_B φ 邊界")
 
     # ── 解析解 CSV ────────────────────────────────────────────────
     print("\n=== 解析解 CSV ===")
