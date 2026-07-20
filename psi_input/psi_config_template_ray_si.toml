@@ -1,12 +1,14 @@
 # PSI_D config template — Ray theory SplittingIntensity (no HFFK)
+# Shared under software psi_input/ (do NOT use project-local copies).
 # Placeholders filled by job scripts via sed:
-#   __OUTPUT_DIR__  → psi_output/<tag>
-#   __MODEL_DAT__   → viztomo_output/psitomo<step>_fix2.dat
-#   __OBS_FILE__    → absolute path to DUMMY_SI observation file
-#   __SOURCES_DAT__ → absolute path to Sources.dat
+#   __OUTPUT_DIR__         → psi_output/<tag>
+#   __MODEL_DAT__          → viztomo_output/psitomo<step>_filled.dat
+#   __OBS_FILE__           → absolute path to DUMMY_SI observation file
+#   __SOURCES_DAT__        → absolute path to Sources.dat
+#   __TF_GLOBAL_CARTESIAN__→ true (VIZTOMO) or false (benchmark)
+#   __DEPTH_REVERSE__      → linear
 #
-# No [Model.Methods.FiniteFrequency] → PSI_D uses pure ray-theory SI
-# SI integrated along 1D TauP ray path, no Fresnel zone sampling.
+# No [Model.Methods.FiniteFrequency] → pure ray-theory SI along TauP path.
 
 [Output]
 output_directory = "__OUTPUT_DIR__"
@@ -17,7 +19,8 @@ filename = "__OBS_FILE__"
 
 [Model]
 parameterisation = "ElasticVoigt"
-tf_global_cartesian = false
+tf_global_cartesian = __TF_GLOBAL_CARTESIAN__
+depth_reverse = "__DEPTH_REVERSE__"
 theModel = "__MODEL_DAT__"
 
 [Model.CoordinateSystem]

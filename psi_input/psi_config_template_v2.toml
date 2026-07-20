@@ -1,14 +1,16 @@
-# PSI_D config template v2 — 0608_model4_V-50H100
+# PSI_D config template v2 — HFFK / SP (shared software psi_input/)
 # Placeholders filled by job scripts via sed:
-#   __OUTPUT_DIR__  → psi_output/<tag>
-#   __MODEL_DAT__   → viztomo_output/psitomo<step>_fix2.dat
-#   __OBS_TYPE__    → SplittingIntensity  or  SplittingParameters
-#   __OBS_FILE__    → absolute path to DUMMY observation file
-#   __HFFK_SP__     → (only for SplittingParameters) tf_hffk_sp = true/false
-#   __PERIOD__      → dominant period (s)
-#   __N_RINGS__     → Fresnel zone radial rings  (>=1 for HFFK)
-#   __N_AZIMUTH__   → azimuthal samples per ring
-#   __SOURCES_DAT__ → absolute path to Sources.dat
+#   __OUTPUT_DIR__         → psi_output/<tag>
+#   __MODEL_DAT__          → viztomo_output/psitomo<step>_filled.dat
+#   __OBS_TYPE__           → SplittingIntensity  or  SplittingParameters
+#   __OBS_FILE__           → absolute path to DUMMY observation file
+#   __HFFK_SP__            → (SplittingParameters only) tf_hffk_sp = true/false; SI = empty
+#   __PERIOD__             → dominant period (s)
+#   __N_RINGS__            → Fresnel zone radial rings  (>=1 for HFFK)
+#   __N_AZIMUTH__          → azimuthal samples per ring
+#   __SOURCES_DAT__        → absolute path to Sources.dat
+#   __TF_GLOBAL_CARTESIAN__→ true (VIZTOMO) or false (benchmark)
+#   __DEPTH_REVERSE__      → linear — never use dims3
 
 [Output]
 output_directory = "__OUTPUT_DIR__"
@@ -20,7 +22,8 @@ __HFFK_SP__
 
 [Model]
 parameterisation = "ElasticVoigt"
-tf_global_cartesian = false
+tf_global_cartesian = __TF_GLOBAL_CARTESIAN__
+depth_reverse = "__DEPTH_REVERSE__"
 theModel = "__MODEL_DAT__"
 
 [Model.CoordinateSystem]

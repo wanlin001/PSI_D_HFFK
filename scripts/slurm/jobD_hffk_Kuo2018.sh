@@ -55,12 +55,15 @@ run_hffk() {
         -e "s|__N_RINGS__|3|g" \
         -e "s|__N_AZIMUTH__|8|g" \
         -e "s|__SOURCES_DAT__|${SRC}|g" \
+        -e "s|__TF_GLOBAL_CARTESIAN__|${TF_GLOBAL_CARTESIAN:-true}|g" \
+        -e "s|__DEPTH_REVERSE__|${DEPTH_REVERSE:-linear}|g" \
         "${TEMPLATE}" > "${TMPDIR}/psi_config.toml"
 
     ${JULIA} --project=${PSI_DIR} ${PSI_DIR}/scripts/run_psi.jl "${TMPDIR}"
     rm -rf "${TMPDIR}"
 
-    { printf "# SI, error, period_s, phase, src_id, rcv_id, unknown, paz_rad\n"; \
+    { printf "# SI, error, period_s, phase, src_id, rcv_id, unknown, paz_rad
+"; \
       cat "${OUTDAT}"; } > "${OUTDAT}.tmp" && mv "${OUTDAT}.tmp" "${OUTDAT}"
     wc -l "${OUTDAT}"; echo "===== ${TAG} done ====="
 }

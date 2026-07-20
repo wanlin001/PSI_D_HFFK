@@ -87,3 +87,11 @@ awk -F',' 'NR==1{print $NF}' psi_input/DUMMY_SI_Kuo2018_SKS.dat
 ```
 
 筆記目錄：`validation/notes/`
+
+### 2026-07-20 — Job A/B/C/D 一律用 software `psi_input`
+
+- **規則**：Sources / DUMMY / templates / Receivers / TauP → `${PSI_DIR}/psi_input/`
+- **專案只保留**：`viztomo_output/`（MODEL_DAT）與 `psi_output/`
+- Templates 改為含 `__TF_GLOBAL_CARTESIAN__` / `__DEPTH_REVERSE__`（VIZTOMO 預設 true / linear）
+- 共用：`scripts/psi_project_common.sh`、`scripts/slurm/jobA.sh`–`jobD.sh`
+- 專案內 `jobA.sh`–`jobD.sh` 與 long-name jobs 已去掉 `PROJECT_DIR/psi_input` 優先邏輯
