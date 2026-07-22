@@ -18,7 +18,8 @@ Branch of record: `main`
 |----------|----------|
 | `PSI_DIR` = software clone above | Julia package, **shared** `psi_input/`, SLURM/PBS jobs, validation |
 | `PSI_DIR/psi_input/` | Sources, DUMMY obs, Receivers, TauP, TOML templates (**do not copy into each ASPECT project**) |
-| `PSI_DIR/scripts/slurm/` | Job scripts (`jobA.sh`, `jobB.sh`, …) |
+| `PSI_DIR/scripts/slurm/` | Canonical SI jobs only (`jobA.sh` … `jobD_perturbed_*.sh`) |
+| `PSI_DIR/scripts/slurm/bk/` | Archived duplicate / SP-only scripts (do not submit) |
 | `PSI_DIR/validation/` | Benchmark SLURM jobs + plotting scripts |
 | ASPECT **project** folder | `viztomo_output/psitomo0050_filled.dat` (model) + `psi_output/` (results only) |
 
@@ -129,34 +130,24 @@ SOFT=/home/wl/software/ECOMAN2.0-seismology.PSI_D_HFFK
 PROJ=/lfs/wl/ASPECT/YOUR_MODEL_DIR   # <-- edit
 
 cd "$PROJ"
-cp "$SOFT/scripts/slurm/jobA.sh"   .   # Ray SI · uniform48
-cp "$SOFT/scripts/slurm/jobA96.sh" .   # Ray SI · uniform96
-cp "$SOFT/scripts/slurm/jobB.sh"   .   # Ray SI · Kuo2018 SKS+SKKS
-cp "$SOFT/scripts/slurm/jobC.sh"   .   # HFFK SI · uniform48 · T4–50
-cp "$SOFT/scripts/slurm/jobC96.sh" .   # HFFK SI · uniform96 · T4–50
-cp "$SOFT/scripts/slurm/jobD.sh"   .   # HFFK SI · Kuo2018 · T4–50
-```
-
-Optional (perturbed Kuo SKS):
-
-```bash
-cp "$SOFT/scripts/slurm/jobB_perturbed_ray_si.sh" .
-cp "$SOFT/scripts/slurm/jobD_perturbed_hffk.sh" .
+cp "$SOFT/scripts/slurm"/job{A,A96,B,B_perturbed_ray_si,C,C96,D,D_perturbed_hffk}.sh .
 ```
 
 ### Submit (must `cd` into `$PROJ` first)
 
 ```bash
 cd "$PROJ"
-sbatch jobA.sh     # ray_si_uniform48
-sbatch jobA96.sh   # ray_si_uniform96
-sbatch jobB.sh     # ray_si_Kuo2018_SKS / SKKS
-sbatch jobC.sh     # hffk_u48_T{4…50}s
-sbatch jobC96.sh   # hffk_u96_T{4…50}s
-sbatch jobD.sh     # hffk_Kuo2018_*_T{4…50}s
+sbatch jobA.sh                    # ray_si_uniform48
+sbatch jobA96.sh                  # ray_si_uniform96
+sbatch jobB.sh                    # ray_si_Kuo2018_SKS / SKKS
+sbatch jobB_perturbed_ray_si.sh   # ray_si_Kuo2018_SKS_perturbed
+sbatch jobC.sh                    # hffk_u48_T{4…50}s
+sbatch jobC96.sh                  # hffk_u96_T{4…50}s
+sbatch jobD.sh                    # hffk_Kuo2018_*_T{4…50}s
+sbatch jobD_perturbed_hffk.sh     # hffk_Kuo2018_SKS_perturbed_T*
 ```
 
-Jobs are independent (A∥B∥C∥D). Partition: `8358`.
+Jobs are independent. Partition: `8358`.
 
 ### Expected outputs under `$PROJ/psi_output/`
 
@@ -165,9 +156,11 @@ Jobs are independent (A∥B∥C∥D). Partition: `8358`.
 | A | `ray_si_uniform48/` |
 | A96 | `ray_si_uniform96/` |
 | B | `ray_si_Kuo2018_SKS/`, `ray_si_Kuo2018_SKKS/` |
+| B-pert | `ray_si_Kuo2018_SKS_perturbed/` |
 | C | `hffk_u48_T4s` … `hffk_u48_T50s` |
 | C96 | `hffk_u96_T4s` … `hffk_u96_T50s` |
 | D | `hffk_Kuo2018_SKS_T*s/`, `hffk_Kuo2018_SKKS_T*s/` |
+| D-pert | `hffk_Kuo2018_SKS_perturbed_T{4…50}s/` |
 
 Each complete SI file: `SYN_SplittingIntensity_ShearWave.dat`.
 
@@ -196,18 +189,22 @@ cp "$SOFT/psi_input/Receivers.dat" "$PROJ/psi_output/"
 
 ---
 
-## 6. Job cheat sheet (observable = SplittingIntensity)
+## 6. Job cheat sheet (canonical SI only)
 
-| Short name | Long / legacy name | Catalogue | Method | Periods |
-|------------|--------------------|-----------|--------|---------|
-| `jobA.sh` | `jobA2_ray_si_uniform48.sh` | u48 | Ray SI | ∞-freq |
-| `jobA96.sh` | — | u96 | Ray SI | ∞-freq |
-| `jobB.sh` | `jobB2_ray_si_Kuo2018.sh` | Kuo SKS+SKKS | Ray SI | ∞-freq |
-| `jobC.sh` | `jobC_hffk_uniform48.sh` | u48 | HFFK SI | 4–50 s |
-| `jobC96.sh` | `jobC_hffk_uniform96.sh` | u96 | HFFK SI | 4–50 s |
-| `jobD.sh` | `jobD_hffk_Kuo2018.sh` | Kuo SKS+SKKS | HFFK SI | 4–50 s |
+Active scripts in `scripts/slurm/` (everything else is under `scripts/slurm/bk/`):
 
-**Note:** `jobA_ray_uniform48.sh` / `jobA_ray_uniform96.sh` write **SplittingParameters** (φ, δt), not SI. Prefer `jobA.sh` / `jobA96.sh` for SI workflows.
+| Script | Catalogue | Method | Periods | Purpose |
+|--------|-----------|--------|---------|---------|
+| `jobA.sh` | u48 | Ray SI | ∞-freq | Synthetic Ray baseline |
+| `jobA96.sh` | u96 | Ray SI | ∞-freq | Denser BAZ synthetic Ray |
+| `jobB.sh` | Kuo SKS+SKKS | Ray SI | ∞-freq | Real-event Ray (obs compare) |
+| `jobB_perturbed_ray_si.sh` | Kuo SKS perturbed | Ray SI | ∞-freq | BAZ/depth sensitivity (Ray) |
+| `jobC.sh` | u48 | HFFK SI | 4–50 s | Synthetic FF vs Job A |
+| `jobC96.sh` | u96 | HFFK SI | 4–50 s | Synthetic FF vs Job A96 |
+| `jobD.sh` | Kuo SKS+SKKS | HFFK SI | 4–50 s | Real-event FF vs Job B |
+| `jobD_perturbed_hffk.sh` | Kuo SKS perturbed | HFFK SI | 4–50 s | FF vs Job B-pert |
+
+Archived duplicates / SP jobs: see `scripts/slurm/bk/README.md`.
 
 ---
 
